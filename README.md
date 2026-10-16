@@ -59,15 +59,17 @@ cp terraform.tfvars.example terraform.tfvars
 ```
 
 Edit `terraform.tfvars` — set `domain`, `zone_id`, `allowed_cidrs` (your hub and reporter
-source IPs), and `letsencrypt_email`. Then:
+source IPs), `letsencrypt_email`, and your network: `vpc_id` and a **public** `subnet_id`
+(its route table sends `0.0.0.0/0` to the VPC's internet gateway, and it auto-assigns a
+public IP). The broker has no internet access otherwise, and SSM, cert issuance, and the
+broker itself will all fail silently. Then:
 
 ```
 terraform init
 terraform apply
 ```
 
-If apply fails with `No default VPC for this user`, run `aws ec2 create-default-vpc` once
-and re-apply. When it finishes, capture the outputs — you will paste them below:
+When it finishes, capture the outputs — you will paste them below:
 
 ```
 terraform output

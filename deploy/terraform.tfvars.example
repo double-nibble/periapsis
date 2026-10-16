@@ -6,3 +6,8 @@ domain            = "double-nibble.com"
 zone_id           = "Z0123456789ABCDEFGHIJ"
 allowed_cidrs     = ["203.0.113.0/32"]  # your hub + reporter source IPs
 letsencrypt_email = "you@example.com"
+
+# Your network (created out of band). The subnet must be public:
+# a route table with 0.0.0.0/0 to the VPC's internet gateway.
+vpc_id            = "vpc-xxxxxxxx"
+subnet_id         = "subnet-xxxxxxxx"
