@@ -10,3 +10,4 @@ export type {
 } from "./provider.js"
 export { collectSource, type SourceSnapshot } from "./collect.js"
 export { github } from "./providers/github.js"
+export { runOnce, startReporter, type ReporterConfig } from "./runtime.js"
