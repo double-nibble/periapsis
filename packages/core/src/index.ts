@@ -12,3 +12,11 @@ export {
   type PublicIdentity,
   type Envelope,
 } from "./sealed.js"
+export {
+  keygen,
+  signRegistry,
+  verifyRegistry,
+  lookup,
+  type Registry,
+  type SignedRegistry,
+} from "./registry.js"
