@@ -34,6 +34,9 @@ importers:
       '@periapsis/core':
         specifier: workspace:*
         version: link:../core
+      '@periapsis/transport':
+        specifier: workspace:*
+        version: link:../transport
 
   packages/transport:
     dependencies:
