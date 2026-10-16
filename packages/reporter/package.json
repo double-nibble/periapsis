@@ -16,6 +16,7 @@
     }
   },
   "dependencies": {
-    "@periapsis/core": "workspace:*"
+    "@periapsis/core": "workspace:*",
+    "@periapsis/transport": "workspace:*"
   }
 }
