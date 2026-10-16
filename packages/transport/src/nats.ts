@@ -1,7 +1,9 @@
-import { type NatsConnection, connect } from "nats"
+import { type NatsConnection, connect } from "nats.ws"
 import type { Broker, Handler, Subscription } from "./broker.js"
 
 export interface NatsConfig {
+  // One or more ws:// or wss:// URLs. Production uses wss:// so broker
+  // traffic is an ordinary secure WebSocket on 443.
   servers: string | string[]
   token?: string
   user?: string
