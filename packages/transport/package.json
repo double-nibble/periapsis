@@ -7,7 +7,7 @@
   "types": "./dist/index.d.ts",
   "dependencies": {
     "@periapsis/core": "workspace:*",
-    "nats": "^2"
+    "nats.ws": "^1.30.3"
   },
   "scripts": {
     "build": "tsc -b",

@@ -2,13 +2,12 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { NatsBroker } from "./nats.js"
 
-// Integration test: runs only when NATS_URL is set, otherwise skipped,
-// so CI stays green without a broker.
-const url = process.env.NATS_URL
-const token = process.env.NATS_TOKEN
+// Integration test: runs only when NATS_WS_URL is set (a ws:// or wss:// URL),
+// otherwise skipped, so CI stays green without a broker.
+const url = process.env.NATS_WS_URL
 
-test("publish and subscribe round-trip", { skip: !url }, async () => {
-  const b = await NatsBroker.connect({ servers: url as string, token })
+test("publish and subscribe round-trip over websocket", { skip: !url }, async () => {
+  const b = await NatsBroker.connect({ servers: url as string })
   const got: string[] = []
   await b.subscribe("status.>", (data, subject) =>
     got.push(`${subject}:${Buffer.from(data).toString()}`),
@@ -19,8 +18,8 @@ test("publish and subscribe round-trip", { skip: !url }, async () => {
   await b.close()
 })
 
-test("a fresh connection resumes after a restart", { skip: !url }, async () => {
-  const b = await NatsBroker.connect({ servers: url as string, token })
+test("a fresh connection resumes after reconnect", { skip: !url }, async () => {
+  const b = await NatsBroker.connect({ servers: url as string })
   const got: string[] = []
   await b.subscribe("x.>", (data) => got.push(Buffer.from(data).toString()))
   await b.publish("x.one", new TextEncoder().encode("a"))
