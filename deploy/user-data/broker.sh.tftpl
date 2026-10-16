@@ -1,0 +1,63 @@
+#!/bin/bash
+set -euo pipefail
+
+# Install NATS server (arm64).
+NATS_VER="2.10.22"
+cd /tmp
+curl -sSL "https://github.com/nats-io/nats-server/releases/download/v$${NATS_VER}/nats-server-v$${NATS_VER}-linux-arm64.tar.gz" -o nats.tgz
+tar -xzf nats.tgz
+install nats-server-*/nats-server /usr/local/bin/nats-server
+
+# Obtain a TLS cert for the broker FQDN via Let's Encrypt. DNS may still be
+# propagating at first boot, so retry until the challenge succeeds.
+dnf install -y certbot
+until certbot certonly --standalone -n --agree-tos -m "${email}" -d "${fqdn}" --preferred-challenges http; do
+  echo "certbot failed (DNS may not have propagated); retrying in 60s"
+  sleep 60
+done
+
+# Renew automatically and reload NATS on renewal.
+cat > /etc/systemd/system/certbot-renew.service <<RENEW
+[Unit]
+Description=Renew Let's Encrypt and reload NATS
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --standalone --deploy-hook "systemctl reload nats"
+RENEW
+cat > /etc/systemd/system/certbot-renew.timer <<TIMER
+[Unit]
+Description=Daily cert renewal check
+[Timer]
+OnCalendar=daily
+Persistent=true
+[Install]
+WantedBy=timers.target
+TIMER
+systemctl enable --now certbot-renew.timer
+
+mkdir -p /etc/nats
+cat > /etc/nats/nats.conf <<CONF
+port: 4222
+tls {
+  cert_file: "/etc/letsencrypt/live/${fqdn}/fullchain.pem"
+  key_file:  "/etc/letsencrypt/live/${fqdn}/privkey.pem"
+}
+# Accounts and per-identity credentials are provisioned post-boot; see deploy/README.
+include "accounts.conf"
+CONF
+# Placeholder until accounts are provisioned; replaced out-of-band.
+touch /etc/nats/accounts.conf
+
+cat > /etc/systemd/system/nats.service <<UNIT
+[Unit]
+Description=NATS Server
+After=network-online.target
+[Service]
+ExecStart=/usr/local/bin/nats-server -c /etc/nats/nats.conf
+Restart=always
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now nats
