@@ -1,0 +1,11 @@
+{
+  "account": "sub1",
+  "brokerUrl": "wss://api.double-nibble.com",
+  "registryUrl": "https://status.double-nibble.com/registry.json",
+  "rootSignPublic": "-----BEGIN PUBLIC KEY-----\n...paste the pinned root public key...\n-----END PUBLIC KEY-----\n",
+  "signPrivate": "GENERATED_AT_BOOTSTRAP",
+  "instances": [
+    { "provider": "github", "instance": "my-gh", "params": { "token": "GITHUB_TOKEN", "login": "your-login" } }
+  ],
+  "everyMs": 60000
+}
