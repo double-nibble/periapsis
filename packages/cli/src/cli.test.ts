@@ -13,18 +13,27 @@ function run(cwd: string, ...args: string[]): string {
   return execFileSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8" })
 }
 
-test("keygen writes a private key and prints a public identity", () => {
+test("keygen writes a private key and a public identity file", () => {
   const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
-  const out = JSON.parse(run(dir, "keygen", "sub1"))
-  assert.ok(out.sub1.signPublic.includes("PUBLIC KEY"))
+  run(dir, "keygen", "sub1")
   const priv = JSON.parse(readFileSync(join(dir, "sub1.key"), "utf8"))
   assert.ok(priv.signPrivate.includes("PRIVATE KEY"))
+  const pub = JSON.parse(readFileSync(join(dir, "sub1.pub.json"), "utf8"))
+  assert.ok(pub.sub1.signPublic.includes("PUBLIC KEY"))
+})
+
+test("keygen refuses to overwrite an existing key", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "sub1")
+  assert.throws(() => run(dir, "keygen", "sub1"))
 })
 
 test("sign-registry produces a doc that verifies against the root public key", () => {
   const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
-  const rootPub = JSON.parse(run(dir, "keygen", "root"))
-  const subPub = JSON.parse(run(dir, "keygen", "sub1"))
+  run(dir, "keygen", "root")
+  run(dir, "keygen", "sub1")
+  const rootPub = JSON.parse(readFileSync(join(dir, "root.pub.json"), "utf8"))
+  const subPub = JSON.parse(readFileSync(join(dir, "sub1.pub.json"), "utf8"))
   const registry = { identities: { sub1: subPub.sub1 }, signedAt: Date.now() }
   writeFileSync(join(dir, "registry.json"), JSON.stringify(registry))
   const signed = JSON.parse(run(dir, "sign-registry", "root.key", "registry.json"))
@@ -34,8 +43,7 @@ test("sign-registry produces a doc that verifies against the root public key", (
 test("registry-add merges a public identity into the registry", () => {
   const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
   run(dir, "keygen", "sub1")
-  const subPub = run(dir, "keygen", "sub2")
-  writeFileSync(join(dir, "sub2.pub.json"), subPub)
+  run(dir, "keygen", "sub2")
   writeFileSync(join(dir, "registry.json"), JSON.stringify({ identities: {}, signedAt: 0 }))
   const updated = JSON.parse(run(dir, "registry-add", "registry.json", "sub2.pub.json"))
   assert.ok(updated.identities.sub2)

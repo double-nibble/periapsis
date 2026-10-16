@@ -30,117 +30,98 @@ by account, so one view aggregates many agents without conflating them.
 
 ## Setup
 
-The fleet has three kinds of participant: the **infrastructure** (a broker and a
-registry), the **hub** (your dashboard, on a machine you control), and one or more
-**reporters** (on your subaccount machines). Set them up in that order.
-
-You will use two identities you generate: a **root** key that signs the registry, and a
-**hub** key the hub runs as. Each reporter generates its own key on its own machine.
+Three kinds of participant: the **infrastructure** (broker + registry), the **hub**
+(your dashboard), and one or more **reporters** (on your subaccount machines). Set them
+up in order. All commands run from the repo root unless noted.
 
 ### Prerequisites
 
-- Node >= 22.13 and pnpm on the machines that build the code (the hub, each reporter).
-- A domain you control in Route53, and AWS credentials with permission to apply the
-  Terraform. If you authenticated with `aws login` (your credentials show as type
-  `login`), export the bridge profile before running Terraform so it can read them:
+Build the repo once:
 
-  ```
-  export AWS_PROFILE=terraform-login
-  ```
+```
+pnpm install && pnpm build
+```
 
-  The deploy config also defaults `aws_profile` to this, so plain `terraform` commands
-  work once that profile exists.
-- Build the repo once so the CLI is available:
+If you authenticated to AWS with `aws login` (your credentials show as type `login`),
+export the bridge profile so Terraform can read them:
 
-  ```
-  pnpm install && pnpm build
-  CLI=packages/cli/dist/cli.js
-  ```
+```
+export AWS_PROFILE=terraform-login
+```
 
-### 1. Stand up the infrastructure
+You also need a domain in Route53 and its hosted zone id.
+
+### 1. Infrastructure
 
 ```
 cd deploy
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars`:
-
-- `domain` — your domain, e.g. `double-nibble.com`.
-- `zone_id` — its Route53 hosted zone id.
-- `allowed_cidrs` — the source IPs of your hub and reporters (e.g. `["203.0.113.4/32"]`).
-- `letsencrypt_email` — an address you control, for cert expiry notices.
-- `aws_profile` — the profile Terraform uses for AWS credentials. The default,
-  `terraform-login`, bridges an `aws login` session via a `credential_process`; set it
-  to your own profile if you authenticate differently.
-
-Then:
+Edit `terraform.tfvars` — set `domain`, `zone_id`, `allowed_cidrs` (your hub and reporter
+source IPs), and `letsencrypt_email`. Then:
 
 ```
 terraform init
-terraform validate
-terraform plan
 terraform apply
 ```
 
-Note the outputs — `broker_url` (`wss://api.<domain>`), `registry_url`
-(`https://status.<domain>/registry.json`), and `registry_bucket`. `terraform.tfvars`
-and Terraform state are gitignored; keep them local.
-
-### 2. Generate the root and hub keys
-
-On a machine you control (your hub machine is fine):
+If apply fails with `No default VPC for this user`, run `aws ec2 create-default-vpc` once
+and re-apply. When it finishes, capture the outputs — you will paste them below:
 
 ```
-node $CLI keygen root   # writes root.key, prints the root public identity
-node $CLI keygen hub    # writes hub.key, prints the hub public identity
+terraform output
+cd ..
 ```
 
-`root.key` is the anchor of the whole fleet — keep it safe and offline where you can.
-Note the **root public key** from the `keygen root` output; every machine is configured
-with it. The commands also write `root.pub.json` and `hub.pub.json` (redirect stdout to
-save them).
+### 2. Keys
 
-### 3. Build and publish the first registry
-
-Start a registry containing the hub, then add reporters as you onboard them (step 6).
-The helper pulls the current registry, adds keys, signs with the root key, and uploads:
+Generate the root key (the fleet's trust anchor — back up `root.key`) and the hub key.
+Each writes a private `.key` and a public `.pub.json`:
 
 ```
-node $CLI keygen hub > hub.pub.json
-packages/cli/scripts/publish-registry.sh root.key <registry_bucket> hub.pub.json
+node packages/cli/dist/cli.js keygen root
+node packages/cli/dist/cli.js keygen hub
 ```
 
-### 4. Provision broker credentials
+### 3. Publish the registry
+
+Upload a signed registry containing the hub. Replace `REGISTRY_BUCKET` with the
+`registry_bucket` output from step 1:
+
+```
+packages/cli/scripts/publish-registry.sh root.key REGISTRY_BUCKET hub.pub.json
+curl -sS https://status.<domain>/registry.json
+```
+
+The curl should return signed JSON containing the `hub` identity.
+
+### 4. Broker credentials
 
 Give each account its own NATS credentials so a reporter can only publish its own
-subject. Connect to the broker over SSM and write them into `/etc/nats/accounts.conf`:
+subject. Replace `BROKER_INSTANCE_ID` with the `broker_instance_id` output:
 
 ```
-aws ssm start-session --target <broker_instance_id>
-# edit /etc/nats/accounts.conf, then:
+aws ssm start-session --target BROKER_INSTANCE_ID
+# in the session: edit /etc/nats/accounts.conf, then:
 sudo systemctl restart nats
+exit
 ```
 
 ### 5. Run the hub
 
-On your hub machine, copy the hub config example and fill it in:
+Write the hub config. Replace `<domain>` and paste the root public key (the `signPublic`
+value from `root.pub.json`) and the hub box private key (the `boxPrivate` value from
+`hub.key`):
 
 ```
 cp packages/hub/config.example.json hub-config.json
-```
-
-Set `brokerUrl` and `registryUrl` (from the Terraform outputs), `rootSignPublic` (the
-root public key from step 2), and `boxPrivate` (the hub's box private key, from
-`hub.key`). Then start the hub:
-
-```
+# edit hub-config.json: brokerUrl, registryUrl, rootSignPublic, boxPrivate
 node packages/hub/dist/main.js hub-config.json
 ```
 
-It subscribes to the fleet, ingests sealed status from every reporter, and serves the
-dashboard on `http://127.0.0.1:4747` (or your configured `port`). Open that in a
-browser.
+The hub ingests sealed status from reporters and serves the dashboard at
+`http://127.0.0.1:4747`. Open it in a browser.
 
 ### 6. Bring a reporter online
 
@@ -150,18 +131,16 @@ On each subaccount machine (macOS):
 curl -fsSL https://raw.githubusercontent.com/double-nibble/periapsis/main/packages/reporter/install/install.sh | bash
 ```
 
-The first run clones and builds the repo, generates this account's keypair locally
-(`~/.periapsis/<account>.key`, which never leaves the machine), and writes a starter
-config at `~/.periapsis/config.json`. Edit that config:
+The first run clones, builds, generates this account's keypair locally (the private key
+never leaves the machine), and writes `~/.periapsis/config.json`. Edit that config: set
+`rootSignPublic` (the root public key from step 2) and each instance's provider token and
+login.
 
-- `rootSignPublic` — the root public key from step 2.
-- each instance's provider params — for GitHub, a token and your login.
-
-Then admit this account to the registry by sending its **public** key
-(`~/.periapsis/<account>.pub.json`) to yourself and running:
+Admit this account to the registry — send its public key
+(`~/.periapsis/<account>.pub.json`) to yourself and run, replacing `REGISTRY_BUCKET`:
 
 ```
-packages/cli/scripts/publish-registry.sh root.key <registry_bucket> sub1.pub.json
+packages/cli/scripts/publish-registry.sh root.key REGISTRY_BUCKET sub1.pub.json
 ```
 
 Re-run the installer to start the reporter as a launchd agent:
@@ -170,8 +149,7 @@ Re-run the installer to start the reporter as a launchd agent:
 curl -fsSL https://raw.githubusercontent.com/double-nibble/periapsis/main/packages/reporter/install/install.sh | bash
 ```
 
-Within a minute the reporter seals its first snapshot to the hub, and the account
-appears on the dashboard. Logs are at `~/.periapsis/reporter.log`.
+Within a minute the account appears on the dashboard. Logs: `~/.periapsis/reporter.log`.
 
 ## Develop
 

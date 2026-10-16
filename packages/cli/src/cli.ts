@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { type Registry, keygen, signRegistry } from "@periapsis/core"
 
 function usage(): never {
@@ -24,10 +24,19 @@ function usage(): never {
 }
 
 function cmdKeygen(name: string): void {
+  const keyPath = `${name}.key`
+  const pubPath = `${name}.pub.json`
+  if (existsSync(keyPath)) {
+    process.stderr.write(
+      `${keyPath} already exists; refusing to overwrite an identity. Remove it first to regenerate.\n`,
+    )
+    process.exit(1)
+  }
   const { identity, publicIdentity } = keygen()
-  writeFileSync(`${name}.key`, JSON.stringify(identity), { mode: 0o600 })
-  process.stderr.write(`wrote ${name}.key (private — keep this on the machine only)\n`)
-  process.stdout.write(`${JSON.stringify({ [name]: publicIdentity }, null, 2)}\n`)
+  writeFileSync(keyPath, JSON.stringify(identity), { mode: 0o600 })
+  writeFileSync(pubPath, JSON.stringify({ [name]: publicIdentity }, null, 2))
+  process.stderr.write(`wrote ${keyPath} (private — keep this on the machine only)\n`)
+  process.stderr.write(`wrote ${pubPath} (public — register this with the operator)\n`)
 }
 
 function cmdRegistryAdd(registryPath: string, pubPath: string): void {
