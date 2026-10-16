@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { STATUS_WILDCARD, commandSubject, statusSubject } from "./subjects.ts"
+import { STATUS_WILDCARD, commandSubject, statusSubject } from "./subjects.js"
 
 test("status subject for an account", () => {
   assert.equal(statusSubject("sub1"), "status.sub1")

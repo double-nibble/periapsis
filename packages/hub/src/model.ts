@@ -1,4 +1,4 @@
-import type { Row } from "./store.ts"
+import type { Row } from "./store.js"
 
 export interface ModelItem {
   account: string

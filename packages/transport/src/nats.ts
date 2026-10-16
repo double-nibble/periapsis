@@ -1,5 +1,5 @@
 import { type NatsConnection, connect } from "nats"
-import type { Broker, Handler, Subscription } from "./broker.ts"
+import type { Broker, Handler, Subscription } from "./broker.js"
 
 export interface NatsConfig {
   servers: string | string[]

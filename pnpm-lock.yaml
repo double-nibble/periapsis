@@ -29,7 +29,11 @@ importers:
         specifier: workspace:*
         version: link:../transport
 
-  packages/reporter: {}
+  packages/reporter:
+    dependencies:
+      '@periapsis/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/transport:
     dependencies:

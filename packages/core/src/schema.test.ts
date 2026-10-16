@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { SchemaError, validateSnapshot } from "./schema.ts"
+import { SchemaError, validateSnapshot } from "./schema.js"
 
 const base = { account: "sub1", source: "github" }
 const okItem = {

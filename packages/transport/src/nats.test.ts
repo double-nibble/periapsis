@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { NatsBroker } from "./nats.ts"
+import { NatsBroker } from "./nats.js"
 
 // Integration test: runs only when NATS_URL is set, otherwise skipped,
 // so CI stays green without a broker.

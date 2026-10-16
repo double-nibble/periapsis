@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { MemoryBroker, subjectMatches } from "./memory.ts"
+import { MemoryBroker, subjectMatches } from "./memory.js"
 
 test("exact subject matches", () => {
   assert.ok(subjectMatches("status.sub1", "status.sub1"))

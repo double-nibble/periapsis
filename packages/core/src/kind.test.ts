@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { KINDS, isKind } from "./kind.ts"
+import { KINDS, isKind } from "./kind.js"
 
 test("every listed kind is recognized", () => {
   for (const k of KINDS) assert.ok(isKind(k))

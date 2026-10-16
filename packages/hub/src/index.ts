@@ -1,5 +1,5 @@
-export { openStore, type Store, type Row, type Status } from "./store.ts"
-export { startSubscriber, type Subscriber } from "./subscriber.ts"
+export { openStore, type Store, type Row, type Status } from "./store.js"
+export { startSubscriber, type Subscriber } from "./subscriber.js"
 export {
   buildModel,
   aggregate,
@@ -7,4 +7,4 @@ export {
   type AccountModel,
   type ModelItem,
   type ScheduleEntry,
-} from "./model.ts"
+} from "./model.js"
