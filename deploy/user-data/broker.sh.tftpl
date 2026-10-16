@@ -3,7 +3,7 @@ set -euo pipefail
 
 # The t4g.nano has 512MB RAM; dnf installs OOM without swap. Add a swapfile first.
 if [ ! -f /swapfile ]; then
-  dd if=/dev/zero of=/swapfile bs=1M count=1024
+  dd if=/dev/zero of=/swapfile bs=1M count=512
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
