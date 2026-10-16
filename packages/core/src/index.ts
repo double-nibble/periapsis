@@ -3,3 +3,12 @@ export { isId, safeLink } from "./ids.js"
 export { SchemaError, validateSnapshot, type Item, type Snapshot } from "./schema.js"
 export { statusSubject, commandSubject, STATUS_WILDCARD } from "./subjects.js"
 export { generateKeypair, sign, verify, type Keypair } from "./signing.js"
+export {
+  generateIdentity,
+  seal,
+  open,
+  SealError,
+  type IdentityKeys,
+  type PublicIdentity,
+  type Envelope,
+} from "./sealed.js"
