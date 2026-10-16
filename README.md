@@ -62,6 +62,9 @@ Edit `terraform.tfvars`:
 - `zone_id` — its Route53 hosted zone id.
 - `allowed_cidrs` — the source IPs of your hub and reporters (e.g. `["203.0.113.4/32"]`).
 - `letsencrypt_email` — an address you control, for cert expiry notices.
+- `aws_profile` — the profile Terraform uses for AWS credentials. The default,
+  `terraform-login`, bridges an `aws login` session via a `credential_process`; set it
+  to your own profile if you authenticate differently.
 
 Then:
 
