@@ -1,0 +1,16 @@
+{
+  "name": "@periapsis/transport",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@periapsis/core": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "node --test --experimental-strip-types \"src/**/*.test.ts\""
+  }
+}
