@@ -1,5 +1,5 @@
 export { openStore, type Store, type Row, type Status } from "./store.js"
-export { startSubscriber, type Subscriber } from "./subscriber.js"
+export { startSubscriber, type Subscriber, type SubscriberDeps } from "./subscriber.js"
 export {
   buildModel,
   aggregate,
