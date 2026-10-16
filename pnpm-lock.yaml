@@ -18,6 +18,21 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  _devrun:
+    dependencies:
+      '@periapsis/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@periapsis/hub':
+        specifier: workspace:*
+        version: link:../packages/hub
+      '@periapsis/reporter':
+        specifier: workspace:*
+        version: link:../packages/reporter
+      '@periapsis/transport':
+        specifier: workspace:*
+        version: link:../packages/transport
+
   packages/core: {}
 
   packages/hub:
