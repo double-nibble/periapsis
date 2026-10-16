@@ -24,6 +24,12 @@ importers:
 
   packages/reporter: {}
 
+  packages/transport:
+    dependencies:
+      '@periapsis/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@biomejs/biome@1.9.4':
