@@ -9,12 +9,12 @@ data "aws_ami" "al2023_arm" {
 
 resource "aws_security_group" "broker" {
   name        = "periapsis-broker"
-  description = "NATS broker: client port from allowed CIDRs only"
+  description = "NATS broker: WSS client port from allowed CIDRs only"
 
   ingress {
-    description = "NATS TLS"
-    from_port   = 4222
-    to_port     = 4222
+    description = "NATS over secure WebSocket"
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidrs
   }

@@ -8,13 +8,30 @@ curl -sSL "https://github.com/nats-io/nats-server/releases/download/v$${NATS_VER
 tar -xzf nats.tgz
 install nats-server-*/nats-server /usr/local/bin/nats-server
 
-# Obtain a TLS cert for the broker FQDN via Let's Encrypt. DNS may still be
-# propagating at first boot, so retry until the challenge succeeds.
+# TLS cert for the broker FQDN via Let's Encrypt. DNS may still be propagating
+# at first boot, so retry until the HTTP-01 challenge succeeds.
 dnf install -y certbot
 until certbot certonly --standalone -n --agree-tos -m "${email}" -d "${fqdn}" --preferred-challenges http; do
   echo "certbot failed (DNS may not have propagated); retrying in 60s"
   sleep 60
 done
+
+# NATS serves clients only over a secure WebSocket on 443, so broker traffic is
+# an ordinary wss:// connection. The native NATS port is bound to localhost.
+mkdir -p /etc/nats
+cat > /etc/nats/nats.conf <<CONF
+host: "127.0.0.1"
+port: 4222
+websocket {
+  port: 443
+  tls {
+    cert_file: "/etc/letsencrypt/live/${fqdn}/fullchain.pem"
+    key_file:  "/etc/letsencrypt/live/${fqdn}/privkey.pem"
+  }
+}
+include "accounts.conf"
+CONF
+touch /etc/nats/accounts.conf
 
 # Renew automatically and reload NATS on renewal.
 cat > /etc/systemd/system/certbot-renew.service <<RENEW
@@ -22,7 +39,7 @@ cat > /etc/systemd/system/certbot-renew.service <<RENEW
 Description=Renew Let's Encrypt and reload NATS
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/certbot renew --standalone --deploy-hook "systemctl reload nats"
+ExecStart=/usr/bin/certbot renew --standalone --pre-hook "systemctl stop nats" --post-hook "systemctl start nats"
 RENEW
 cat > /etc/systemd/system/certbot-renew.timer <<TIMER
 [Unit]
@@ -33,20 +50,6 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 TIMER
-systemctl enable --now certbot-renew.timer
-
-mkdir -p /etc/nats
-cat > /etc/nats/nats.conf <<CONF
-port: 4222
-tls {
-  cert_file: "/etc/letsencrypt/live/${fqdn}/fullchain.pem"
-  key_file:  "/etc/letsencrypt/live/${fqdn}/privkey.pem"
-}
-# Accounts and per-identity credentials are provisioned post-boot; see deploy/README.
-include "accounts.conf"
-CONF
-# Placeholder until accounts are provisioned; replaced out-of-band.
-touch /etc/nats/accounts.conf
 
 cat > /etc/systemd/system/nats.service <<UNIT
 [Unit]
@@ -61,3 +64,4 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable --now nats
+systemctl enable --now certbot-renew.timer

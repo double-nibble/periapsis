@@ -3,7 +3,7 @@
 Stands up the neutral central point: a NATS broker and a public-key registry,
 both behind your own domain so traffic looks like ordinary HTTPS/service calls.
 
-- `api.<domain>` — the NATS broker (`tls://api.<domain>:4222`)
+- `api.<domain>` — the NATS broker over secure WebSocket (`wss://api.<domain>`)
 - `status.<domain>` — the signed public-key registry (`https://status.<domain>/registry.json`)
 
 ## Apply

@@ -1,6 +1,6 @@
 output "broker_url" {
-  description = "NATS broker URL for hub and reporters"
-  value       = "tls://${local.broker_fqdn}:4222"
+  description = "NATS broker URL (secure WebSocket) for hub and reporters"
+  value       = "wss://${local.broker_fqdn}"
 }
 
 output "registry_url" {
