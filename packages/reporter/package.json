@@ -1,0 +1,13 @@
+{
+  "name": "@periapsis/reporter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "node --test --experimental-strip-types \"src/**/*.test.ts\""
+  }
+}
