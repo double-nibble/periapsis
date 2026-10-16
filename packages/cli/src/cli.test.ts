@@ -30,3 +30,14 @@ test("sign-registry produces a doc that verifies against the root public key", (
   const signed = JSON.parse(run(dir, "sign-registry", "root.key", "registry.json"))
   assert.ok(verifyRegistry(signed, rootPub.root.signPublic))
 })
+
+test("registry-add merges a public identity into the registry", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "sub1")
+  const subPub = run(dir, "keygen", "sub2")
+  writeFileSync(join(dir, "sub2.pub.json"), subPub)
+  writeFileSync(join(dir, "registry.json"), JSON.stringify({ identities: {}, signedAt: 0 }))
+  const updated = JSON.parse(run(dir, "registry-add", "registry.json", "sub2.pub.json"))
+  assert.ok(updated.identities.sub2)
+  assert.ok(updated.signedAt > 0)
+})
