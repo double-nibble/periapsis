@@ -20,7 +20,14 @@ importers:
 
   packages/core: {}
 
-  packages/hub: {}
+  packages/hub:
+    dependencies:
+      '@periapsis/core':
+        specifier: workspace:*
+        version: link:../core
+      '@periapsis/transport':
+        specifier: workspace:*
+        version: link:../transport
 
   packages/reporter: {}
 
