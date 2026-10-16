@@ -16,3 +16,9 @@ terraform.tfvars
 *.swp
 *.swo
 *~
+# Key material and local configs — NEVER commit
+*.key
+*.pub.json
+hub-config.json
+registry.json
+signed-registry.json
