@@ -72,6 +72,11 @@ resource "aws_instance" "broker" {
     email = var.letsencrypt_email
   })
 
+  root_block_device {
+    volume_size = 16
+    volume_type = "gp3"
+  }
+
   tags = { Name = "periapsis-broker" }
 }
 
