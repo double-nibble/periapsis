@@ -20,3 +20,4 @@ export {
   type Registry,
   type SignedRegistry,
 } from "./registry.js"
+export { RegistryClient, type RegistryClientConfig } from "./registry-client.js"
