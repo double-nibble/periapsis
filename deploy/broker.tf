@@ -10,6 +10,7 @@ data "aws_ami" "al2023_arm" {
 resource "aws_security_group" "broker" {
   name        = "periapsis-broker"
   description = "NATS broker: WSS client port from allowed CIDRs only"
+  vpc_id      = var.vpc_id
 
   ingress {
     description = "NATS over secure WebSocket"
@@ -62,6 +63,7 @@ resource "aws_iam_instance_profile" "broker" {
 resource "aws_instance" "broker" {
   ami                    = data.aws_ami.al2023_arm.id
   instance_type          = var.instance_type
+  subnet_id              = var.subnet_id
   vpc_security_group_ids = [aws_security_group.broker.id]
   iam_instance_profile   = aws_iam_instance_profile.broker.name
 

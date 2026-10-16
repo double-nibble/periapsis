@@ -47,3 +47,13 @@ variable "aws_profile" {
   type        = string
   default     = "terraform-login"
 }
+
+variable "vpc_id" {
+  description = "VPC to place the broker in. Must have an internet gateway."
+  type        = string
+}
+
+variable "subnet_id" {
+  description = "A public subnet in that VPC (route table has 0.0.0.0/0 to the IGW, auto-assign public IP). The broker has no internet otherwise."
+  type        = string
+}
