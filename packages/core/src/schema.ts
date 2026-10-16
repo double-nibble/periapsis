@@ -1,5 +1,5 @@
-import { isId, safeLink } from "./ids.ts"
-import { isKind } from "./kind.ts"
+import { isId, safeLink } from "./ids.js"
+import { isKind } from "./kind.js"
 
 export class SchemaError extends Error {}
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { aggregate, buildModel } from "./model.ts"
-import type { Row } from "./store.ts"
+import { aggregate, buildModel } from "./model.js"
+import type { Row } from "./store.js"
 
 function row(account: string, over: Partial<Row> = {}): Row {
   return {

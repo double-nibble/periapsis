@@ -1,4 +1,4 @@
-import { isId } from "./ids.ts"
+import { isId } from "./ids.js"
 
 function assertAccount(account: string): void {
   if (!isId(account)) throw new Error(`invalid account id: ${account}`)

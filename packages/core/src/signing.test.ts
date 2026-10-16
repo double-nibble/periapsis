@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { generateKeypair, sign, verify } from "./signing.ts"
+import { generateKeypair, sign, verify } from "./signing.js"
 
 test("sign and verify round-trip", () => {
   const { privateKey, publicKey } = generateKeypair()

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import type { Item } from "@periapsis/core"
-import { openStore } from "./store.ts"
+import { openStore } from "./store.js"
 
 function one<T>(rows: T[]): T {
   const r = rows[0]

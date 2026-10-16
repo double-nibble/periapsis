@@ -1,4 +1,4 @@
-import type { Broker, Handler, Subscription } from "./broker.ts"
+import type { Broker, Handler, Subscription } from "./broker.js"
 
 // Matches a NATS-style subject against a filter with `*` (one token) and `>` (tail).
 export function subjectMatches(filter: string, subject: string): boolean {

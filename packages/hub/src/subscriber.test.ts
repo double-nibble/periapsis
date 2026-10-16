@@ -2,8 +2,8 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { statusSubject } from "@periapsis/core"
 import { MemoryBroker } from "@periapsis/transport"
-import { openStore } from "./store.ts"
-import { startSubscriber } from "./subscriber.ts"
+import { openStore } from "./store.js"
+import { startSubscriber } from "./subscriber.js"
 
 function publish(broker: MemoryBroker, account: string, body: object) {
   return broker.publish(statusSubject(account), new TextEncoder().encode(JSON.stringify(body)))

@@ -1,6 +1,6 @@
 import { STATUS_WILDCARD, type Snapshot, validateSnapshot } from "@periapsis/core"
 import type { Broker } from "@periapsis/transport"
-import type { Store } from "./store.ts"
+import type { Store } from "./store.js"
 
 export interface Subscriber {
   stop(): void
