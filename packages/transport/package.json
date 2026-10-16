@@ -6,7 +6,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@periapsis/core": "workspace:*"
+    "@periapsis/core": "workspace:*",
+    "nats": "^2"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
