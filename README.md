@@ -41,7 +41,15 @@ You will use two identities you generate: a **root** key that signs the registry
 
 - Node >= 22.13 and pnpm on the machines that build the code (the hub, each reporter).
 - A domain you control in Route53, and AWS credentials with permission to apply the
-  Terraform.
+  Terraform. If you authenticated with `aws login` (your credentials show as type
+  `login`), export the bridge profile before running Terraform so it can read them:
+
+  ```
+  export AWS_PROFILE=terraform-login
+  ```
+
+  The deploy config also defaults `aws_profile` to this, so plain `terraform` commands
+  work once that profile exists.
 - Build the repo once so the CLI is available:
 
   ```
@@ -62,6 +70,9 @@ Edit `terraform.tfvars`:
 - `zone_id` — its Route53 hosted zone id.
 - `allowed_cidrs` — the source IPs of your hub and reporters (e.g. `["203.0.113.4/32"]`).
 - `letsencrypt_email` — an address you control, for cert expiry notices.
+- `aws_profile` — the profile Terraform uses for AWS credentials. The default,
+  `terraform-login`, bridges an `aws login` session via a `credential_process`; set it
+  to your own profile if you authenticate differently.
 
 Then:
 

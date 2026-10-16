@@ -41,3 +41,9 @@ variable "letsencrypt_email" {
   description = "Email for Let's Encrypt registration on the broker cert"
   type        = string
 }
+
+variable "aws_profile" {
+  description = "AWS profile for credentials. Defaults to the terraform-login profile that bridges an aws login session."
+  type        = string
+  default     = "terraform-login"
+}
