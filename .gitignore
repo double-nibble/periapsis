@@ -7,3 +7,12 @@ dist/
 *.db
 *.db-*
 *.tsbuildinfo
+# Terraform — never commit real values or state
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.swp
+*.swo
+*~

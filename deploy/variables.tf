@@ -1,0 +1,43 @@
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "domain" {
+  description = "Root domain you control in Route53, e.g. double-nibble.com"
+  type        = string
+}
+
+variable "zone_id" {
+  description = "Route53 hosted zone id for the domain"
+  type        = string
+}
+
+variable "broker_subdomain" {
+  description = "Subdomain for the NATS broker"
+  type        = string
+  default     = "api"
+}
+
+variable "registry_subdomain" {
+  description = "Subdomain for the public-key registry"
+  type        = string
+  default     = "status"
+}
+
+variable "allowed_cidrs" {
+  description = "Source CIDRs allowed to reach the broker (your hub and reporters)"
+  type        = list(string)
+}
+
+variable "instance_type" {
+  description = "Broker instance type"
+  type        = string
+  default     = "t4g.nano"
+}
+
+variable "letsencrypt_email" {
+  description = "Email for Let's Encrypt registration on the broker cert"
+  type        = string
+}
