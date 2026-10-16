@@ -9,3 +9,4 @@ export type {
   AccountConfig,
 } from "./provider.js"
 export { collectSource, type SourceSnapshot } from "./collect.js"
+export { github } from "./providers/github.js"
