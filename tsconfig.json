@@ -4,6 +4,7 @@
     { "path": "packages/core" },
     { "path": "packages/transport" },
     { "path": "packages/hub" },
-    { "path": "packages/reporter" }
+    { "path": "packages/reporter" },
+    { "path": "packages/cli" }
   ]
 }

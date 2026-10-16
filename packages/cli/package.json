@@ -1,0 +1,15 @@
+{
+  "name": "@periapsis/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "periapsis": "./dist/cli.js" },
+  "main": "./dist/cli.js",
+  "dependencies": {
+    "@periapsis/core": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "node --test \"dist/**/*.test.js\""
+  }
+}
