@@ -9,3 +9,4 @@ export {
   type ScheduleEntry,
 } from "./model.js"
 export { startServer, type HubServer } from "./server.js"
+export { main } from "./main.js"

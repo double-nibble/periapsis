@@ -1,0 +1,8 @@
+{
+  "brokerUrl": "wss://api.double-nibble.com",
+  "registryUrl": "https://status.double-nibble.com/registry.json",
+  "rootSignPublic": "-----BEGIN PUBLIC KEY-----\n...pinned root public key...\n-----END PUBLIC KEY-----\n",
+  "boxPrivate": "-----BEGIN PRIVATE KEY-----\n...hub box private key (from hub.key)...\n-----END PRIVATE KEY-----\n",
+  "port": 4747,
+  "dataDir": "/Users/you/.periapsis-hub"
+}

@@ -12,7 +12,8 @@
       "**/.pnpm-store/**",
       "**/install/**",
       "**/deploy/**",
-      "**/scripts/**"
+      "**/scripts/**",
+      "**/config.example.json"
     ]
   },
   "formatter": {

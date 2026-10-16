@@ -18,5 +18,8 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "bin": {
+    "periapsis-hub": "./dist/main.js"
   }
 }
