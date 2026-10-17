@@ -74,3 +74,15 @@ test("hub-config assembles a config from the hub key and root public key", () =>
   assert.equal(cfg.boxPrivate, hub.boxPrivate)
   assert.equal(cfg.port, 4747)
 })
+
+test("broker-accounts generates NATS auth config and creds including the hub", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "broker-accounts", "--accounts", "sub1,sub2")
+  const conf = readFileSync(join(dir, "accounts.conf"), "utf8")
+  assert.ok(conf.includes('user: "hub"'))
+  assert.ok(conf.includes('publish: ["status.sub1"]'))
+  assert.ok(conf.includes('subscribe: ["commands.sub1", "_INBOX.>"]'))
+  assert.ok(conf.includes('subscribe: ["status.>", "_INBOX.>"]'))
+  const creds = JSON.parse(readFileSync(join(dir, "broker-creds.json"), "utf8"))
+  assert.ok(creds.hub && creds.sub1 && creds.sub2)
+})
