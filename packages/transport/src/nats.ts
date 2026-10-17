@@ -1,5 +1,5 @@
 import { createLogger } from "@periapsis/core"
-import { type NatsConnection, connect } from "nats.ws"
+import { type ConnectionOptions, type NatsConnection, connect, nkeyAuthenticator } from "nats.ws"
 import type { Broker, Handler, Subscription } from "./broker.js"
 
 const log = createLogger("nats")
@@ -11,6 +11,24 @@ export interface NatsConfig {
   token?: string
   user?: string
   pass?: string
+  // An nkey seed (SU...). When set, the connection authenticates by proving
+  // possession of the seed, and no password is sent.
+  nkeySeed?: string
+}
+
+// Maps a NatsConfig to nats.ws connection options. An nkey seed takes
+// precedence over user/password, so possession of the seed is the only
+// credential on the wire.
+export function connectOptions(config: NatsConfig): ConnectionOptions {
+  const opts: ConnectionOptions = { servers: config.servers }
+  if (config.nkeySeed) {
+    opts.authenticator = nkeyAuthenticator(new TextEncoder().encode(config.nkeySeed))
+  } else {
+    opts.token = config.token
+    opts.user = config.user
+    opts.pass = config.pass
+  }
+  return opts
 }
 
 export class NatsBroker implements Broker {
@@ -25,12 +43,7 @@ export class NatsBroker implements Broker {
   }
 
   static async connect(config: NatsConfig): Promise<NatsBroker> {
-    const nc = await connect({
-      servers: config.servers,
-      token: config.token,
-      user: config.user,
-      pass: config.pass,
-    })
+    const nc = await connect(connectOptions(config))
     log.info("connected", { servers: config.servers })
     return new NatsBroker(nc)
   }
