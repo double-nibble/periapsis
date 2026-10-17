@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { RegistryClient, createLogger } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 import type { Provider } from "./provider.js"
+import { calendar } from "./providers/calendar.js"
 import { github } from "./providers/github.js"
 import { ical } from "./providers/ical.js"
 import { type ReporterConfig, startReporter } from "./runtime.js"
@@ -20,7 +21,10 @@ interface FileConfig {
   brokerPass?: string
 }
 
-const PROVIDERS = new Map<string, Provider>([["github", github]])
+const PROVIDERS = new Map<string, Provider>([
+  ["github", github],
+  ["gcal", calendar],
+])
 
 export async function main(configPath: string): Promise<void> {
   const cfg = JSON.parse(readFileSync(configPath, "utf8")) as FileConfig
