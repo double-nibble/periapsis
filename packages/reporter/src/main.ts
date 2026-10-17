@@ -17,6 +17,8 @@ interface FileConfig {
   model?: string
   brokerUser?: string
   brokerPass?: string
+  // An nkey seed (SU...). Preferred over brokerUser/brokerPass.
+  natsSeed?: string
 }
 
 export async function main(configPath: string): Promise<void> {
@@ -29,6 +31,7 @@ export async function main(configPath: string): Promise<void> {
 
   const broker = await NatsBroker.connect({
     servers: cfg.brokerUrl,
+    nkeySeed: cfg.natsSeed,
     user: cfg.brokerUser,
     pass: cfg.brokerPass,
   })
