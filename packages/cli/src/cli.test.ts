@@ -86,3 +86,38 @@ test("broker-accounts generates NATS auth config and creds including the hub", (
   const creds = JSON.parse(readFileSync(join(dir, "broker-creds.json"), "utf8"))
   assert.ok(creds.hub && creds.sub1 && creds.sub2)
 })
+
+test("reporter-config assembles a reporter config from the account key", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "root")
+  run(dir, "keygen", "sub1")
+  writeFileSync(
+    join(dir, "instances.json"),
+    JSON.stringify([{ provider: "github", instance: "mygh", params: { token: "T", login: "L" } }]),
+  )
+  run(
+    dir,
+    "reporter-config",
+    "--account",
+    "sub1",
+    "--account-key",
+    "sub1.key",
+    "--root-pub",
+    "root.pub.json",
+    "--broker",
+    "wss://api.example.com",
+    "--registry",
+    "https://status.example.com/registry.json",
+    "--instances",
+    "instances.json",
+  )
+  const cfg = JSON.parse(readFileSync(join(dir, "reporter-config.json"), "utf8"))
+  const key = JSON.parse(readFileSync(join(dir, "sub1.key"), "utf8"))
+  const rootPub = JSON.parse(readFileSync(join(dir, "root.pub.json"), "utf8"))
+  assert.equal(cfg.account, "sub1")
+  assert.equal(cfg.signPrivate, key.signPrivate)
+  assert.equal(cfg.rootSignPublic, rootPub.root.signPublic)
+  assert.equal(cfg.instances.length, 1)
+  assert.equal(cfg.everyMs, 60000)
+  assert.equal(cfg.brokerPass, undefined)
+})
