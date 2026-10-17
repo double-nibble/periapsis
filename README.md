@@ -171,3 +171,50 @@ pnpm test
 ```
 
 Requires Node >= 22.13 and pnpm.
+
+## Providers
+
+Each reporter instance names a `provider`, an `instance` label, and provider-specific
+`params`. A reporter's `instances.json` is an array of these. Instances are grouped by the
+provider's abstract `source` on the dashboard.
+
+### github
+
+Open pull requests authored by, and awaiting review from, a GitHub login. Source: `github`.
+
+```json
+{ "provider": "github", "instance": "mygh", "params": { "token": "<github token>", "login": "<github login>" } }
+```
+
+- `token` — a GitHub token (fine-grained or classic) with read access to the relevant
+  repositories; used for the GraphQL `search` query.
+- `login` — the GitHub username whose open PRs (authored and review-requested) to report.
+
+### gcal
+
+Today's Google Calendar events over the API. Source: `calendar`. Sees calendars
+subscribed from other accounts, which `ical` cannot.
+
+```json
+{ "provider": "gcal", "instance": "mycal", "params": { "clientId": "...", "clientSecret": "...", "refreshToken": "...", "calendarId": "primary" } }
+```
+
+- `clientId`, `clientSecret` — an OAuth client (Desktop app) with the Calendar API
+  enabled.
+- `refreshToken` — obtained once via an OAuth consent for the `calendar.readonly` scope.
+  Publish the consent screen to production so the refresh token does not expire.
+- `calendarId` — optional. A single calendar's ID; omit to read every calendar in the
+  account's list, including subscribed ones.
+
+### ical
+
+Today's events from a secret iCal feed, no OAuth. Source: `calendar`. Covers only
+calendars you own (the secret iCal address is owner-only), and does not expand recurring
+events.
+
+```json
+{ "provider": "ical", "instance": "mycal", "params": { "icsUrl": "https://calendar.google.com/calendar/ical/.../basic.ics" } }
+```
+
+- `icsUrl` — a private ICS feed URL. In Google Calendar: *Settings → <your calendar> →
+  Integrate calendar → Secret address in iCal format*. Any ICS feed URL also works.
