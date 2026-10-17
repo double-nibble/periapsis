@@ -2,7 +2,13 @@ import { randomBytes } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { type Registry, isId, keygen, signRegistry } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
-import { type AccountsMap, accountsConf, applyEnrollment, buildEnrollment } from "./enroll.js"
+import {
+  type AccountsMap,
+  accountsConf,
+  applyEnrollment,
+  buildEnrollment,
+  newNatsUser,
+} from "./enroll.js"
 
 function usage(): never {
   process.stderr.write(
@@ -150,9 +156,13 @@ function cmdHubConfig(args: string[]): void {
     process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
     process.exit(1)
   }
-  const hub = JSON.parse(readFileSync(hubKey, "utf8")) as { boxPrivate?: string }
-  if (!hub.boxPrivate) {
-    process.stderr.write(`${hubKey} has no boxPrivate; is it a hub key file?\n`)
+  const hub = JSON.parse(readFileSync(hubKey, "utf8")) as {
+    boxPrivate?: string
+    signPublic?: string
+    boxPublic?: string
+  }
+  if (!hub.boxPrivate || !hub.signPublic || !hub.boxPublic) {
+    process.stderr.write(`${hubKey} has no identity keys; is it a hub key file?\n`)
     process.exit(1)
   }
   const rootSignPublic = rootSignPublicFrom(
@@ -162,18 +172,26 @@ function cmdHubConfig(args: string[]): void {
     process.stderr.write(`${rootPub} has no signPublic\n`)
     process.exit(1)
   }
+  const user = newNatsUser()
   const config: Record<string, unknown> = {
     brokerUrl: broker,
     registryUrl: registry,
     rootSignPublic,
     boxPrivate: hub.boxPrivate,
+    natsSeed: user.seed,
     port: f.port ? Number(f.port) : 4747,
     dataDir: f["data-dir"] ?? `${process.env.HOME}/.periapsis-hub`,
   }
-  if (f["broker-user"]) config.brokerUser = f["broker-user"]
-  if (f["broker-pass"]) config.brokerPass = f["broker-pass"]
   writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
-  process.stderr.write(`wrote ${out} (contains the hub box private key — keep it local)\n`)
+  const blob = {
+    account: "hub",
+    identity: { signPublic: hub.signPublic, boxPublic: hub.boxPublic },
+    nkey: user.publicKey,
+  }
+  process.stdout.write(`${JSON.stringify(blob)}\n`)
+  process.stderr.write(
+    `wrote ${out} (hub box private key and nkey seed — keep it local).\nEnroll the hub with the line printed above: periapsis enroll\n`,
+  )
 }
 
 function cmdBrokerAccounts(args: string[]): void {
