@@ -1,4 +1,5 @@
 import type { InstanceConfig, Provider, ProviderItem, ProviderResult } from "../provider.js"
+import { monthWindow } from "./window.js"
 
 export interface RawEvent {
   uid: string
@@ -72,14 +73,6 @@ export function parseEvents(ics: string): RawEvent[] {
   return events
 }
 
-export function isToday(d: Date, now: Date): boolean {
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
-  return d >= start && d < end
-}
-
 export function toItem(ev: RawEvent, instance: string): ProviderItem {
   const at = ev.start.toISOString()
   return {
@@ -103,9 +96,9 @@ export const ical: Provider = {
     if (!icsUrl) throw new Error("ical instance needs icsUrl")
     const res = await fetch(icsUrl)
     if (!res.ok) throw new Error(`ical fetch ${res.status}: ${(await res.text()).slice(0, 200)}`)
-    const now = new Date()
+    const { start, end } = monthWindow(new Date())
     const items = parseEvents(await res.text())
-      .filter((ev) => isToday(ev.start, now))
+      .filter((ev) => ev.start >= start && ev.start < end)
       .map((ev) => toItem(ev, config.instance))
     return { items }
   },

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { isToday, parseEvents, toItem } from "./ical.js"
+import { parseEvents, toItem } from "./ical.js"
 
 const ICS = [
   "BEGIN:VCALENDAR",
@@ -35,10 +35,4 @@ test("toItem maps to a calendar item with start as meta.at", () => {
   assert.equal(item.kind, "calendar")
   assert.equal(item.meta?.at, "2026-10-17T14:00:00.000Z")
   assert.equal(item.url, "https://cal/a")
-})
-
-test("isToday bounds an event to the local day", () => {
-  const now = new Date(2026, 9, 17, 12, 0, 0)
-  assert.equal(isToday(new Date(2026, 9, 17, 9, 0, 0), now), true)
-  assert.equal(isToday(new Date(2026, 9, 19, 9, 0, 0), now), false)
 })
