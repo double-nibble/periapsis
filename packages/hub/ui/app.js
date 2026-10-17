@@ -1,12 +1,13 @@
-import { itemsFor, urgent } from "./view.js"
+import { filterByType, itemsFor, presentTypes, urgent } from "./view.js"
 
 const roster = document.getElementById("roster")
 const detail = document.getElementById("detail")
-const schedule = document.getElementById("schedule")
+const tabs = document.getElementById("tabs")
 const toggle = document.getElementById("nav-toggle")
 
 let model = { accounts: [], schedule: [] }
 let who = null
+let type = "All"
 
 const NAV_KEY = "periapsis.nav.collapsed"
 
@@ -47,28 +48,20 @@ function renderRoster() {
   for (const acct of model.accounts) roster.append(rosterButton(acct.account, acct.items))
 }
 
-function renderSchedule() {
-  schedule.replaceChildren()
-  if (model.schedule.length === 0) {
-    schedule.className = "schedule empty"
-    schedule.textContent = "Nothing scheduled across the fleet today"
-    return
-  }
-  schedule.className = "schedule"
-  for (const s of model.schedule) {
-    const slot = document.createElement("div")
-    slot.className = "slot"
-    const time = document.createElement("span")
-    time.className = "time"
-    time.textContent = (s.at.split("T")[1] || s.at).slice(0, 5)
-    const ev = document.createElement("span")
-    ev.className = "ev"
-    ev.textContent = s.title
-    const w = document.createElement("span")
-    w.className = "who"
-    w.textContent = s.account
-    slot.append(time, ev, w)
-    schedule.append(slot)
+function renderTabs() {
+  tabs.replaceChildren()
+  const present = presentTypes(itemsFor(model, who))
+  if (!present.includes(type) && type !== "All") type = "All"
+  for (const t of ["All", ...present]) {
+    const btn = document.createElement("button")
+    btn.className = "tab"
+    btn.textContent = t
+    btn.setAttribute("aria-current", String(t === type))
+    btn.addEventListener("click", () => {
+      type = t
+      render()
+    })
+    tabs.append(btn)
   }
 }
 
@@ -123,7 +116,7 @@ function renderDetail() {
     return
   }
   const fleet = who === "All"
-  const items = itemsFor(model, who)
+  const items = filterByType(itemsFor(model, who), type)
   const bySource = new Map()
   for (const item of items) {
     const list = bySource.get(item.source) ?? []
@@ -149,7 +142,7 @@ function renderDetail() {
 
 function render() {
   if (!who && model.accounts.length) who = "All"
-  renderSchedule()
+  renderTabs()
   renderRoster()
   renderDetail()
 }

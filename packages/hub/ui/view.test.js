@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { fleetItems, itemsFor, urgent } from "./view.js"
+import { TYPE_ORDER, filterByType, fleetItems, itemsFor, presentTypes, urgent } from "./view.js"
 
 const model = {
   accounts: [
@@ -33,4 +33,24 @@ test("itemsFor returns one account's items, or the fleet for All", () => {
 
 test("urgent counts priority-1 items", () => {
   assert.equal(urgent(fleetItems(model)), 2)
+})
+
+const mixed = [
+  { key: "a", source: "code", priority: 1 },
+  { key: "b", source: "messages", priority: 2 },
+  { key: "c", source: "code", priority: 2 },
+  { key: "d", source: "doorbell", priority: 3 },
+]
+
+test("presentTypes keeps the canonical order and appends unknowns alphabetically", () => {
+  assert.deepEqual(presentTypes(mixed), ["code", "messages", "doorbell"])
+  assert.ok(TYPE_ORDER.includes("calendar"))
+})
+
+test("filterByType narrows to one source, All keeps everything", () => {
+  assert.deepEqual(
+    filterByType(mixed, "code").map((i) => i.key),
+    ["a", "c"],
+  )
+  assert.equal(filterByType(mixed, "All").length, 4)
 })
