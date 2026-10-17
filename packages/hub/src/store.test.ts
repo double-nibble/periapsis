@@ -75,3 +75,14 @@ test("act snooze and restore", () => {
   assert.equal(one(s.list()).status, "active")
   s.close()
 })
+
+test("reconcile records a source heartbeat even with no items", () => {
+  const s = openStore(":memory:")
+  s.reconcile("sub1", "github", [], 500)
+  assert.equal(s.list().length, 0)
+  const reps = s.reporters()
+  assert.equal(reps.length, 1)
+  assert.equal(reps[0]?.account, "sub1")
+  assert.equal(reps[0]?.source, "github")
+  assert.equal(reps[0]?.lastSeen, 500)
+})

@@ -1,4 +1,4 @@
-import type { Row } from "./store.js"
+import type { Reporter, Row } from "./store.js"
 
 export interface ModelItem {
   account: string
@@ -53,10 +53,11 @@ function toItem(row: Row): ModelItem {
 const byPriority = (a: ModelItem, b: ModelItem) =>
   a.priority - b.priority || a.key.localeCompare(b.key)
 
-export function buildModel(rows: Row[], now: number): Model {
+export function buildModel(rows: Row[], now: number, reporters: Reporter[] = []): Model {
   const active = rows.filter((r) => r.status === "active").map(toItem)
 
   const accounts = new Map<string, ModelItem[]>()
+  for (const r of reporters) if (!accounts.has(r.account)) accounts.set(r.account, [])
   for (const item of active) {
     const list = accounts.get(item.account) ?? []
     list.push(item)
