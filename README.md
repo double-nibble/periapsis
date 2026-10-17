@@ -83,6 +83,7 @@ Generate the root key (the fleet's trust anchor — back up `root.key`) and the 
 Each writes a private `.key` and a public `.pub.json`:
 
 ```
+cd ..
 node packages/cli/dist/cli.js keygen root
 node packages/cli/dist/cli.js keygen hub
 ```
