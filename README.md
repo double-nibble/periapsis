@@ -91,46 +91,68 @@ sends on connect, and `nats --server "$BROKER_URL" rtt` reports a round-trip tim
 
 ### 2. Keys
 
-Generate the root key (the fleet's trust anchor — back up `root.key`) and the hub key.
-Each writes a private `.key` and a public `.pub.json`:
+Generate the root key (the fleet's trust anchor — back up `root.key`), the hub key, and a
+key for your first account. Each writes a private `.key` and a public `.pub.json`:
 
 ```
 cd ..
 node packages/cli/dist/cli.js keygen root
 node packages/cli/dist/cli.js keygen hub
+node packages/cli/dist/cli.js keygen sub1
 ```
 
 ### 3. Publish the registry
 
-Upload a signed registry containing the hub:
+Upload a signed registry containing the hub and the account:
 
 ```
-packages/cli/scripts/publish-registry.sh root.key $REGISTRY_BUCKET hub.pub.json
-curl -sS $REGISTRY_URL
+packages/cli/scripts/publish-registry.sh root.key "$REGISTRY_BUCKET" hub.pub.json sub1.pub.json
+curl -sS "$REGISTRY_URL"
 ```
 
-The curl should return signed JSON containing the `hub` identity.
+The curl should return signed JSON containing the `hub` and `sub1` identities.
 
 ### 4. Broker credentials
 
-Give each account its own NATS credentials so a reporter can only publish its own
-subject:
+Generate the broker's NATS auth from the registry. Every identity becomes a user: each
+account may publish only its own `status.<account>` subject and subscribe its own
+`commands.<account>`; the hub subscribes `status.>` and publishes `commands.>`.
 
 ```
-aws ssm start-session --target $BROKER_INSTANCE_ID
-# in the session: edit /etc/nats/accounts.conf, then:
+curl -sS "$REGISTRY_URL" > signed-registry.json
+node packages/cli/dist/cli.js broker-accounts --registry-file signed-registry.json
+```
+
+This writes `accounts.conf` (install on the broker) and `broker-creds.json` (the
+generated passwords — keep it local). Install `accounts.conf` and restart NATS:
+
+```
+aws ssm start-session --target "$BROKER_INSTANCE_ID"
+```
+
+In the session, write the file — paste the contents of your local `accounts.conf` where
+shown — and restart:
+
+```
+sudo tee /etc/nats/accounts.conf >/dev/null <<'EOF'
+# paste the contents of accounts.conf here
+EOF
 sudo systemctl restart nats
 exit
 ```
 
+Re-running `broker-accounts` regenerates every password, so rebuild the hub and reporter
+configs below whenever you run it.
+
 ### 5. Run the hub
 
-Assemble the hub config from your keys and the exported URLs, then run it:
+Assemble the hub config, including its broker credentials, then run it:
 
 ```
 node packages/cli/dist/cli.js hub-config \
   --hub-key hub.key --root-pub root.pub.json \
-  --broker "$BROKER_URL" --registry "$REGISTRY_URL"
+  --broker "$BROKER_URL" --registry "$REGISTRY_URL" \
+  --broker-user hub --broker-pass "$(jq -r .hub broker-creds.json)"
 node packages/hub/dist/main.js hub-config.json
 ```
 
@@ -147,31 +169,34 @@ It returns the aggregated fleet model as JSON — empty until a reporter publish
 
 ### 6. Bring a reporter online
 
-On each subaccount machine (macOS):
+Write the provider config, editing in each instance's token and login:
+
+```
+cat > instances.json <<'EOF'
+[ { "provider": "github", "instance": "mygh", "params": { "token": "YOUR_TOKEN", "login": "YOUR_LOGIN" } } ]
+EOF
+```
+
+Assemble the reporter config and run it. The NATS password comes from the environment, so
+it never lands in your shell history:
+
+```
+export PERIAPSIS_BROKER_PASS="$(jq -r .sub1 broker-creds.json)"
+node packages/cli/dist/cli.js reporter-config \
+  --account sub1 --account-key sub1.key --root-pub root.pub.json \
+  --broker "$BROKER_URL" --registry "$REGISTRY_URL" --instances instances.json
+node packages/reporter/dist/main.js reporter-config.json
+```
+
+Within a minute `sub1` appears on the dashboard, labeled by account.
+
+To add another account: generate its key (`keygen <account>`), admit it (step 3), re-run
+broker credentials (step 4), and assemble a reporter config for it (this step). On a
+dedicated subaccount machine, the installer automates the keygen and launchd setup:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/double-nibble/periapsis/main/packages/reporter/install/install.sh | bash
 ```
-
-The first run clones, builds, generates this account's keypair locally (the private key
-never leaves the machine), and writes `~/.periapsis/config.json`. Edit that config: set
-`rootSignPublic` (the root public key from step 2) and each instance's provider token and
-login.
-
-Admit this account to the registry — send its public key
-(`~/.periapsis/<account>.pub.json`) to yourself and run, replacing `REGISTRY_BUCKET`:
-
-```
-packages/cli/scripts/publish-registry.sh root.key REGISTRY_BUCKET sub1.pub.json
-```
-
-Re-run the installer to start the reporter as a launchd agent:
-
-```
-curl -fsSL https://raw.githubusercontent.com/double-nibble/periapsis/main/packages/reporter/install/install.sh | bash
-```
-
-Within a minute the account appears on the dashboard. Logs: `~/.periapsis/reporter.log`.
 
 ## Develop
 
