@@ -17,6 +17,10 @@ export class NatsBroker implements Broker {
     this.nc = nc
   }
 
+  get info(): NatsConnection["info"] {
+    return this.nc.info
+  }
+
   static async connect(config: NatsConfig): Promise<NatsBroker> {
     const nc = await connect({
       servers: config.servers,

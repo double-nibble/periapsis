@@ -77,6 +77,18 @@ export REGISTRY_URL="$(terraform output -raw registry_url)"
 export BROKER_INSTANCE_ID="$(terraform output -raw broker_instance_id)"
 ```
 
+Verify the broker is up and listening (NATS over secure WebSocket on 443):
+
+```
+node packages/cli/dist/cli.js broker-check wss://api.<domain>:443
+```
+
+It connects through periapsis's own client and prints the broker's server `INFO`
+(version, max payload, TLS), exiting non-zero if the broker cannot be reached. Two
+ad-hoc alternatives: `websocat wss://api.<domain>:443` shows the raw `INFO` line the
+server sends on connect, and `nats --server wss://api.<domain>:443 rtt` reports a
+round-trip time.
+
 ### 2. Keys
 
 Generate the root key (the fleet's trust anchor — back up `root.key`) and the hub key.

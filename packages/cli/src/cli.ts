@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { type Registry, keygen, signRegistry } from "@periapsis/core"
+import { NatsBroker } from "@periapsis/transport"
 
 function usage(): never {
   process.stderr.write(
@@ -17,6 +18,9 @@ function usage(): never {
       "  registry-add <registry.json> <name.pub.json>",
       "                            Add (or replace) an identity's public key in a",
       "                            registry and print the updated registry to stdout.",
+      "",
+      "  broker-check <wss-url>     Connect to a broker, print its server INFO,",
+      "                            and exit non-zero if it cannot be reached.",
       "",
     ].join("\n"),
   )
@@ -57,8 +61,37 @@ function cmdSignRegistry(rootKeyPath: string, registryPath: string): void {
   process.stdout.write(`${JSON.stringify(signed, null, 2)}\n`)
 }
 
+async function cmdBrokerCheck(url: string): Promise<void> {
+  let broker: NatsBroker
+  try {
+    broker = await NatsBroker.connect({ servers: url })
+  } catch (err) {
+    process.stderr.write(`broker-check: cannot reach ${url}: ${(err as Error).message}\n`)
+    process.exit(1)
+  }
+  const info = broker.info
+  if (!info) {
+    await broker.close()
+    process.stderr.write(`broker-check: connected to ${url} but got no server INFO\n`)
+    process.exit(1)
+  }
+  process.stdout.write(
+    [
+      `broker-check: ${url} OK`,
+      `  server:      ${info.server_name}`,
+      `  version:     ${info.version}`,
+      `  max_payload: ${info.max_payload}`,
+      `  tls:         ${info.tls_required ? "required" : info.tls_available ? "available" : "no"}`,
+      `  client_ip:   ${info.client_ip ?? "?"}`,
+      "",
+    ].join("\n"),
+  )
+  await broker.close()
+}
+
 const [cmd, ...args] = process.argv.slice(2)
 if (cmd === "keygen" && args[0]) cmdKeygen(args[0])
 else if (cmd === "registry-add" && args[0] && args[1]) cmdRegistryAdd(args[0], args[1])
 else if (cmd === "sign-registry" && args[0] && args[1]) cmdSignRegistry(args[0], args[1])
+else if (cmd === "broker-check" && args[0]) await cmdBrokerCheck(args[0])
 else usage()
