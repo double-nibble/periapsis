@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { type Registry, isId, keygen, signRegistry } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
-import { type AccountsMap, applyEnrollment, buildEnrollment } from "./enroll.js"
+import { type AccountsMap, accountsConf, applyEnrollment, buildEnrollment } from "./enroll.js"
 
 function usage(): never {
   process.stderr.write(
@@ -178,6 +178,21 @@ function cmdHubConfig(args: string[]): void {
 
 function cmdBrokerAccounts(args: string[]): void {
   const f = parseFlags(args)
+  if (f["accounts-file"]) {
+    const map = JSON.parse(readFileSync(f["accounts-file"], "utf8")) as AccountsMap
+    if (!map.hub) {
+      process.stderr.write("accounts map has no hub; enroll the hub first\n")
+      process.exit(1)
+    }
+    const out = f.out ?? "accounts.conf"
+    if (existsSync(out) && !f.force) {
+      process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
+      process.exit(1)
+    }
+    writeFileSync(out, accountsConf(map), { mode: 0o600 })
+    process.stderr.write(`wrote ${out} (nkey authorization; upload to the broker)\n`)
+    return
+  }
   let names: string[]
   const regFile = f["registry-file"]
   if (regFile) {
