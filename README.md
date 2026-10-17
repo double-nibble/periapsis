@@ -125,13 +125,12 @@ exit
 
 ### 5. Run the hub
 
-Write the hub config. Replace `<domain>` and paste the root public key (the `signPublic`
-value from `root.pub.json`) and the hub box private key (the `boxPrivate` value from
-`hub.key`):
+Assemble the hub config from your keys and the exported URLs, then run it:
 
 ```
-cp packages/hub/config.example.json hub-config.json
-# edit hub-config.json: brokerUrl, registryUrl, rootSignPublic, boxPrivate
+node packages/cli/dist/cli.js hub-config \
+  --hub-key hub.key --root-pub root.pub.json \
+  --broker "$BROKER_URL" --registry "$REGISTRY_URL"
 node packages/hub/dist/main.js hub-config.json
 ```
 
