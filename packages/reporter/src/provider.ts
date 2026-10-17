@@ -3,9 +3,13 @@ import type { Item } from "@periapsis/core"
 // One configured instance of a provider: which provider, a label that
 // identifies this instance, and provider-specific params and credentials.
 export interface InstanceConfig {
-  provider: string
   instance: string
-  params: Record<string, unknown>
+  // Direct instances name a provider and its params; agent instances name a
+  // source and set mode "agent". source overrides the provider's own source.
+  provider?: string
+  params?: Record<string, unknown>
+  source?: string
+  mode?: "direct" | "agent"
 }
 
 // The item a provider returns before the reporter stamps account/source keys.

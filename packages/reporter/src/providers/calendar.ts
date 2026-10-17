@@ -78,7 +78,7 @@ export function toItem(ev: GoogleEvent, instance: string, calendar?: CalendarRef
 export const calendar: Provider = {
   source: "calendar",
   async read(config: InstanceConfig): Promise<ProviderResult> {
-    const p = config.params
+    const p = config.params ?? {}
     const id = String(p.clientId ?? "")
     const secret = String(p.clientSecret ?? "")
     const refresh = String(p.refreshToken ?? "")
