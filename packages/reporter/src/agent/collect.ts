@@ -1,7 +1,7 @@
 import { type Item, safeLink } from "@periapsis/core"
 import type { InstanceConfig } from "../provider.js"
 import { type RunOptions, type RunResult, extractJson, runClaude } from "./run.js"
-import { AGENT_SOURCES, buildPrompt } from "./sources.js"
+import { buildPrompt, resolveSource } from "./sources.js"
 
 export type AgentRunner = (opts: RunOptions) => Promise<RunResult>
 
@@ -48,9 +48,8 @@ export async function collectAgentInstance(
   run: AgentRunner = runClaude,
   model?: string,
 ): Promise<Item[]> {
-  const spec = AGENT_SOURCES[source]
-  if (!spec) throw new Error(`no agent source for ${source}`)
-  const { prompt, tools } = buildPrompt(source, { account, instance: instance.instance })
+  const spec = resolveSource(source, instance.params)
+  const { prompt, tools } = buildPrompt(spec, { account, instance: instance.instance })
   const res = await run({ prompt, tools, model })
   if (res.isError) throw new Error(res.result.slice(0, 200) || "agent error")
   const parsed = extractJson(res.result) as { items?: unknown[]; failed?: boolean; note?: string }
