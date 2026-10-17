@@ -49,3 +49,28 @@ test("registry-add merges a public identity into the registry", () => {
   assert.ok(updated.identities.sub2)
   assert.ok(updated.signedAt > 0)
 })
+
+test("hub-config assembles a config from the hub key and root public key", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "root")
+  run(dir, "keygen", "hub")
+  run(
+    dir,
+    "hub-config",
+    "--hub-key",
+    "hub.key",
+    "--root-pub",
+    "root.pub.json",
+    "--broker",
+    "wss://api.example.com",
+    "--registry",
+    "https://status.example.com/registry.json",
+  )
+  const cfg = JSON.parse(readFileSync(join(dir, "hub-config.json"), "utf8"))
+  const hub = JSON.parse(readFileSync(join(dir, "hub.key"), "utf8"))
+  const rootPub = JSON.parse(readFileSync(join(dir, "root.pub.json"), "utf8"))
+  assert.equal(cfg.brokerUrl, "wss://api.example.com")
+  assert.equal(cfg.rootSignPublic, rootPub.root.signPublic)
+  assert.equal(cfg.boxPrivate, hub.boxPrivate)
+  assert.equal(cfg.port, 4747)
+})

@@ -22,6 +22,11 @@ function usage(): never {
       "  broker-check <wss-url>     Connect to a broker, print its server INFO,",
       "                            and exit non-zero if it cannot be reached.",
       "",
+      "  hub-config --hub-key <hub.key> --root-pub <root.pub.json>",
+      "             --broker <wss-url> --registry <url> [--port N] [--data-dir D]",
+      "                            Assemble hub-config.json from the hub key and",
+      "                            the root public key.",
+      "",
     ].join("\n"),
   )
   process.exit(1)
@@ -89,9 +94,66 @@ async function cmdBrokerCheck(url: string): Promise<void> {
   await broker.close()
 }
 
+function parseFlags(args: string[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (let i = 0; i < args.length; i += 2) {
+    const k = args[i]
+    const v = args[i + 1]
+    if (k === undefined || !k.startsWith("--") || v === undefined) usage()
+    out[k.slice(2)] = v
+  }
+  return out
+}
+
+function rootSignPublicFrom(doc: Record<string, unknown>): string | undefined {
+  if (typeof doc.signPublic === "string") return doc.signPublic
+  for (const v of Object.values(doc)) {
+    const sp = (v as { signPublic?: unknown } | null)?.signPublic
+    if (typeof sp === "string") return sp
+  }
+  return undefined
+}
+
+function cmdHubConfig(args: string[]): void {
+  const f = parseFlags(args)
+  const hubKey = f["hub-key"]
+  const rootPub = f["root-pub"]
+  const broker = f.broker
+  const registry = f.registry
+  if (!hubKey || !rootPub || !broker || !registry) usage()
+  const out = "hub-config.json"
+  if (existsSync(out)) {
+    process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
+    process.exit(1)
+  }
+  const hub = JSON.parse(readFileSync(hubKey, "utf8")) as { boxPrivate?: string }
+  if (!hub.boxPrivate) {
+    process.stderr.write(`${hubKey} has no boxPrivate; is it a hub key file?\n`)
+    process.exit(1)
+  }
+  const rootSignPublic = rootSignPublicFrom(
+    JSON.parse(readFileSync(rootPub, "utf8")) as Record<string, unknown>,
+  )
+  if (!rootSignPublic) {
+    process.stderr.write(`${rootPub} has no signPublic\n`)
+    process.exit(1)
+  }
+  const config = {
+    brokerUrl: broker,
+    registryUrl: registry,
+    rootSignPublic,
+    boxPrivate: hub.boxPrivate,
+    port: f.port ? Number(f.port) : 4747,
+    dataDir: f["data-dir"] ?? `${process.env.HOME}/.periapsis-hub`,
+  }
+  writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+  process.stderr.write(`wrote ${out} (contains the hub box private key — keep it local)\n`)
+}
+
 const [cmd, ...args] = process.argv.slice(2)
 if (cmd === "keygen" && args[0]) cmdKeygen(args[0])
 else if (cmd === "registry-add" && args[0] && args[1]) cmdRegistryAdd(args[0], args[1])
 else if (cmd === "sign-registry" && args[0] && args[1]) cmdSignRegistry(args[0], args[1])
 else if (cmd === "broker-check" && args[0]) await cmdBrokerCheck(args[0])
+else if (cmd === "hub-config") cmdHubConfig(args)
 else usage()
