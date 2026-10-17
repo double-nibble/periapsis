@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { mkdirSync, readFileSync } from "node:fs"
 import { RegistryClient } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 import { startServer } from "./server.js"
@@ -20,6 +20,7 @@ export async function main(configPath: string): Promise<void> {
   const registry = new RegistryClient({ url: cfg.registryUrl, rootSignPublic: cfg.rootSignPublic })
   await registry.start()
 
+  if (cfg.dataDir) mkdirSync(cfg.dataDir, { recursive: true })
   const store = openStore(cfg.dataDir ? `${cfg.dataDir}/hub.db` : ":memory:")
   const broker = await NatsBroker.connect({ servers: cfg.brokerUrl })
   const port = cfg.port ?? 4747
