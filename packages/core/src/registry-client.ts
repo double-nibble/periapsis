@@ -1,6 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises"
+import { createLogger } from "./log.js"
 import { type Registry, type SignedRegistry, lookup, verifyRegistry } from "./registry.js"
 import type { PublicIdentity } from "./sealed.js"
+
+const log = createLogger("registry")
 
 export interface RegistryClientConfig {
   url: string
@@ -36,12 +39,17 @@ export class RegistryClient {
     const url = new URL(this.config.url)
     if (url.protocol !== "https:") throw new Error("registry url must be https")
     const f = this.config.fetchImpl ?? fetch
+    log.debug("fetching", { url: this.config.url })
     const res = await f(this.config.url)
     if (!res.ok) throw new Error(`registry fetch ${res.status}`)
     const doc = (await res.json()) as SignedRegistry
     if (!verifyRegistry(doc, this.config.rootSignPublic))
       throw new Error("registry signature does not verify")
     this.current = doc.registry
+    log.debug("loaded", {
+      identities: Object.keys(doc.registry.identities).length,
+      signedAt: doc.registry.signedAt,
+    })
     await this.saveCache(doc)
   }
 

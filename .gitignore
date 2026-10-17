@@ -22,3 +22,4 @@ terraform.tfvars
 hub-config.json
 registry.json
 signed-registry.json
+reporter-*.json
