@@ -24,6 +24,7 @@ interface FileConfig {
 const PROVIDERS = new Map<string, Provider>([
   ["github", github],
   ["gcal", calendar],
+  ["ical", ical],
 ])
 
 export async function main(configPath: string): Promise<void> {
