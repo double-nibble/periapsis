@@ -69,11 +69,12 @@ terraform init
 terraform apply
 ```
 
-When it finishes, capture the outputs — you will paste them below:
+When it finishes, configure some environment variables from the outputs:
 
 ```
-terraform output
-cd ..
+export REGISTRY_BUCKET="$(terrafrom output registry_bucket)"
+export REGISTRY_URL="$(terraform output registry_url)"
+export BROKER_INSTANCE_ID="$(terraform output broker_instance_id
 ```
 
 ### 2. Keys
@@ -88,12 +89,11 @@ node packages/cli/dist/cli.js keygen hub
 
 ### 3. Publish the registry
 
-Upload a signed registry containing the hub. Replace `REGISTRY_BUCKET` with the
-`registry_bucket` output from step 1:
+Upload a signed registry containing the hub:
 
 ```
-packages/cli/scripts/publish-registry.sh root.key REGISTRY_BUCKET hub.pub.json
-curl -sS https://status.<domain>/registry.json
+packages/cli/scripts/publish-registry.sh root.key $REGISTRY_BUCKET hub.pub.json
+curl -sS $REGISTRY_URL
 ```
 
 The curl should return signed JSON containing the `hub` identity.
@@ -101,10 +101,10 @@ The curl should return signed JSON containing the `hub` identity.
 ### 4. Broker credentials
 
 Give each account its own NATS credentials so a reporter can only publish its own
-subject. Replace `BROKER_INSTANCE_ID` with the `broker_instance_id` output:
+subject:
 
 ```
-aws ssm start-session --target BROKER_INSTANCE_ID
+aws ssm start-session --target $BROKER_INSTANCE_ID
 # in the session: edit /etc/nats/accounts.conf, then:
 sudo systemctl restart nats
 exit
