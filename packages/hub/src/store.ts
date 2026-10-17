@@ -23,8 +23,15 @@ export interface Row {
   meta: string
 }
 
+export interface Reporter {
+  account: string
+  source: string
+  lastSeen: number
+}
+
 export interface Store {
   reconcile(account: string, source: string, items: Item[], now: number): void
+  reporters(): Reporter[]
   act(
     account: string,
     source: string,
@@ -58,6 +65,12 @@ export function openStore(path: string): Store {
       meta TEXT NOT NULL DEFAULT '{}',
       PRIMARY KEY (account, source, key)
     );
+    CREATE TABLE IF NOT EXISTS sources (
+      account TEXT NOT NULL,
+      source TEXT NOT NULL,
+      last_seen INTEGER NOT NULL,
+      PRIMARY KEY (account, source)
+    );
   `)
 
   const get = db.prepare("SELECT * FROM items WHERE account=? AND source=? AND key=?")
@@ -77,6 +90,10 @@ export function openStore(path: string): Store {
   )
   const prune = db.prepare("DELETE FROM items WHERE status='resolved' AND resolved_at < ?")
   const all = db.prepare("SELECT * FROM items")
+  const touchSource = db.prepare(
+    "INSERT INTO sources (account, source, last_seen) VALUES (?, ?, ?) ON CONFLICT (account, source) DO UPDATE SET last_seen=excluded.last_seen",
+  )
+  const allSources = db.prepare("SELECT account, source, last_seen AS lastSeen FROM sources")
 
   function localKey(fullKey: string): string {
     const parts = fullKey.split(":")
@@ -128,6 +145,7 @@ export function openStore(path: string): Store {
       for (const row of bySource.all(account, source) as unknown as Row[]) {
         if (!seen.has(row.key)) setStatus.run("resolved", null, now, account, source, row.key)
       }
+      touchSource.run(account, source, now)
       prune.run(now - PRUNE_AFTER_MS)
       db.exec("COMMIT")
     } catch (err) {
@@ -160,6 +178,7 @@ export function openStore(path: string): Store {
     reconcile,
     act,
     list: () => all.all() as unknown as Row[],
+    reporters: () => allSources.all() as unknown as Reporter[],
     close: () => db.close(),
   }
 }

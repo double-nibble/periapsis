@@ -23,6 +23,13 @@ function row(account: string, over: Partial<Row> = {}): Row {
   }
 }
 
+test("a reporting account with no items still appears", () => {
+  const m = buildModel([], 1, [{ account: "sub1", source: "github", lastSeen: 1 }])
+  assert.equal(m.accounts.length, 1)
+  assert.equal(m.accounts[0]?.account, "sub1")
+  assert.equal(m.accounts[0]?.items.length, 0)
+})
+
 test("per-account model groups by account", () => {
   const m = buildModel([row("sub1", { key: "a" }), row("sub2", { key: "b" })], 1)
   assert.equal(m.accounts.length, 2)

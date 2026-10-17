@@ -18,10 +18,10 @@ export interface HubServer {
 
 export function startServer(store: Store, port: number, now: () => number = Date.now): HubServer {
   const clients = new Set<import("node:http").ServerResponse>()
-  let model: Model = buildModel(store.list(), now())
+  let model: Model = buildModel(store.list(), now(), store.reporters())
 
   function push(): void {
-    model = buildModel(store.list(), now())
+    model = buildModel(store.list(), now(), store.reporters())
     const payload = `event: model\ndata: ${JSON.stringify(model)}\n\n`
     for (const res of clients) res.write(payload)
   }
