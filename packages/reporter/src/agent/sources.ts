@@ -24,7 +24,7 @@ export const AGENT_SOURCES: Record<string, AgentSource> = {
       "mcp__claude_ai_Google_Calendar__get_event",
     ],
     instructions:
-      "Report today's events from every calendar the account can see, one item per event. key: event id. title: the event summary. detail: the start time. url: the event htmlLink. group: the calendar name. at: the event start in ISO 8601. priority: 2. fingerprint: the event's updated time.",
+      "Report events from every calendar the account can see within the window given in Context (window.start through window.end, which spans the current month grid), one item per event. key: event id. title: the event summary. detail: the start time. url: the event htmlLink. group: the calendar name. at: the event start in ISO 8601. priority: 2. fingerprint: the event's updated time.",
   },
   messages: {
     kind: "message",

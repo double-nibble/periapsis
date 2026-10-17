@@ -1,5 +1,6 @@
 import { type Item, safeLink } from "@periapsis/core"
 import type { InstanceConfig } from "../provider.js"
+import { monthWindow } from "../providers/window.js"
 import { type RunOptions, type RunResult, extractJson, runClaude } from "./run.js"
 import { buildPrompt, resolveSource } from "./sources.js"
 
@@ -49,7 +50,15 @@ export async function collectAgentInstance(
   model?: string,
 ): Promise<Item[]> {
   const spec = resolveSource(source, instance.params)
-  const { prompt, tools } = buildPrompt(spec, { account, instance: instance.instance })
+  const now = new Date()
+  const { start, end } = monthWindow(now)
+  const context = {
+    account,
+    instance: instance.instance,
+    now: now.toISOString(),
+    window: { start: start.toISOString(), end: end.toISOString() },
+  }
+  const { prompt, tools } = buildPrompt(spec, context)
   const res = await run({ prompt, tools, model })
   if (res.isError) throw new Error(res.result.slice(0, 200) || "agent error")
   const parsed = extractJson(res.result) as { items?: unknown[]; failed?: boolean; note?: string }
