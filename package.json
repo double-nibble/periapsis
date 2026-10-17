@@ -12,11 +12,13 @@
     "typecheck": "tsc -b",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "bundle": "node scripts/bundle.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^22",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "esbuild": "^0.25.0"
   }
 }
