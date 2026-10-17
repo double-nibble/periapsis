@@ -1,6 +1,13 @@
-# Default (non-minimal) AL2023: the minimal image omits the SSM agent.
-data "aws_ssm_parameter" "al2023_arm" {
-  name = "/aws/service/ami-al2023-latest/al2023-ami-kernel-default-arm64"
+data "aws_ami" "al2023_arm" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  # Standard AL2023, not "-minimal-" (which omits the SSM agent). The leading
+  # "2023." after the prefix excludes al2023-ami-minimal-*.
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-kernel-*-arm64"]
+  }
 }
 
 resource "aws_security_group" "broker" {
@@ -57,7 +64,7 @@ resource "aws_iam_instance_profile" "broker" {
 }
 
 resource "aws_instance" "broker" {
-  ami                    = data.aws_ssm_parameter.al2023_arm.value
+  ami                    = data.aws_ami.al2023_arm.id
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [aws_security_group.broker.id]
