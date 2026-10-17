@@ -15,6 +15,8 @@ interface FileConfig {
   signPrivate: string
   instances: ReporterConfig["account"]["instances"]
   everyMs?: number
+  brokerUser?: string
+  brokerPass?: string
 }
 
 const PROVIDERS = new Map<string, Provider>([["github", github]])
@@ -27,7 +29,11 @@ export async function main(configPath: string): Promise<void> {
   const hub = registry.identity("hub")
   if (!hub) throw new Error("registry has no hub identity")
 
-  const broker = await NatsBroker.connect({ servers: cfg.brokerUrl })
+  const broker = await NatsBroker.connect({
+    servers: cfg.brokerUrl,
+    user: cfg.brokerUser,
+    pass: cfg.brokerPass,
+  })
   log.info("broker connected", { url: cfg.brokerUrl })
   startReporter(
     broker,

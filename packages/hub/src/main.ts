@@ -14,6 +14,8 @@ interface HubFileConfig {
   boxPrivate: string
   port?: number
   dataDir?: string
+  brokerUser?: string
+  brokerPass?: string
 }
 
 export async function main(configPath: string): Promise<void> {
@@ -25,7 +27,11 @@ export async function main(configPath: string): Promise<void> {
 
   if (cfg.dataDir) mkdirSync(cfg.dataDir, { recursive: true })
   const store = openStore(cfg.dataDir ? `${cfg.dataDir}/hub.db` : ":memory:")
-  const broker = await NatsBroker.connect({ servers: cfg.brokerUrl })
+  const broker = await NatsBroker.connect({
+    servers: cfg.brokerUrl,
+    user: cfg.brokerUser,
+    pass: cfg.brokerPass,
+  })
   log.info("broker connected", { url: cfg.brokerUrl })
   const port = cfg.port ?? 4747
   const server = startServer(store, port)
