@@ -72,9 +72,9 @@ terraform apply
 When it finishes, configure some environment variables from the outputs:
 
 ```
-export REGISTRY_BUCKET="$(terraform output registry_bucket)"
-export REGISTRY_URL="$(terraform output registry_url)"
-export BROKER_INSTANCE_ID="$(terraform output broker_instance_id)"
+export REGISTRY_BUCKET="$(terraform output -raw registry_bucket)"
+export REGISTRY_URL="$(terraform output -raw registry_url)"
+export BROKER_INSTANCE_ID="$(terraform output -raw broker_instance_id)"
 ```
 
 ### 2. Keys
