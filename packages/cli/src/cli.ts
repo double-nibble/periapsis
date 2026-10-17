@@ -29,7 +29,7 @@ function usage(): never {
       "                            Assemble hub-config.json from the hub key and",
       "                            the root public key.",
       "",
-      "  broker-accounts [--registry-file F | --accounts a,b,c]",
+      "  broker-accounts [--registry-file F | --accounts a,b,c] [--keep creds.json]",
       "                            Generate accounts.conf (NATS per-account auth)",
       "                            and broker-creds.json.",
       "",
@@ -183,10 +183,13 @@ function cmdBrokerAccounts(args: string[]): void {
     usage()
   }
   if (!names.includes("hub")) names.push("hub")
-  for (const out of ["accounts.conf", "broker-creds.json"]) {
-    if (existsSync(out)) {
-      process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
-      process.exit(1)
+  const keep = f.keep ? (JSON.parse(readFileSync(f.keep, "utf8")) as Record<string, string>) : {}
+  if (!f.keep) {
+    for (const out of ["accounts.conf", "broker-creds.json"]) {
+      if (existsSync(out)) {
+        process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
+        process.exit(1)
+      }
     }
   }
   const creds: Record<string, string> = {}
@@ -196,7 +199,7 @@ function cmdBrokerAccounts(args: string[]): void {
       process.stderr.write(`invalid account id: ${name}\n`)
       process.exit(1)
     }
-    const password = randomBytes(24).toString("base64url")
+    const password = keep[name] ?? randomBytes(24).toString("base64url")
     creds[name] = password
     const perms =
       name === "hub"
