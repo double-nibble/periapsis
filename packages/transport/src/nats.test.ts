@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { NatsBroker } from "./nats.js"
+import { NatsBroker, connectOptions } from "./nats.js"
 
 // Integration test: runs only when NATS_WS_URL is set (a ws:// or wss:// URL),
 // otherwise skipped, so CI stays green without a broker.
@@ -28,4 +28,18 @@ test("a fresh connection resumes after reconnect", { skip: !url }, async () => {
   await new Promise((r) => setTimeout(r, 100))
   assert.deepEqual(got, ["a", "b"])
   await b.close()
+})
+
+test("connectOptions uses an nkey authenticator when a seed is given, and no password", () => {
+  const opts = connectOptions({ servers: "wss://b", nkeySeed: "SUACSOMESEED", pass: "nope" })
+  assert.equal(typeof opts.authenticator, "function")
+  assert.equal(opts.pass, undefined)
+  assert.equal(opts.user, undefined)
+})
+
+test("connectOptions falls back to user/password when no seed is given", () => {
+  const opts = connectOptions({ servers: "wss://b", user: "sub1", pass: "pw" })
+  assert.equal(opts.authenticator, undefined)
+  assert.equal(opts.user, "sub1")
+  assert.equal(opts.pass, "pw")
 })
