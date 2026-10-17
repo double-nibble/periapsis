@@ -75,19 +75,19 @@ When it finishes, configure some environment variables from the outputs:
 export REGISTRY_BUCKET="$(terraform output -raw registry_bucket)"
 export REGISTRY_URL="$(terraform output -raw registry_url)"
 export BROKER_INSTANCE_ID="$(terraform output -raw broker_instance_id)"
+export BROKER_URL="$(terraform output -raw broker_url)"
 ```
 
 Verify the broker is up and listening (NATS over secure WebSocket on 443):
 
 ```
-node packages/cli/dist/cli.js broker-check wss://api.<domain>:443
+node packages/cli/dist/cli.js broker-check "$BROKER_URL"
 ```
 
 It connects through periapsis's own client and prints the broker's server `INFO`
 (version, max payload, TLS), exiting non-zero if the broker cannot be reached. Two
-ad-hoc alternatives: `websocat wss://api.<domain>:443` shows the raw `INFO` line the
-server sends on connect, and `nats --server wss://api.<domain>:443 rtt` reports a
-round-trip time.
+ad-hoc alternatives: `websocat "$BROKER_URL"` shows the raw `INFO` line the server
+sends on connect, and `nats --server "$BROKER_URL" rtt` reports a round-trip time.
 
 ### 2. Keys
 
@@ -137,6 +137,14 @@ node packages/hub/dist/main.js hub-config.json
 
 The hub ingests sealed status from reporters and serves the dashboard at
 `http://127.0.0.1:4747`. Open it in a browser.
+
+The hub runs in the foreground; from another shell, verify it is serving:
+
+```
+curl -sS http://127.0.0.1:4747/api/model
+```
+
+It returns the aggregated fleet model as JSON — empty until a reporter publishes.
 
 ### 6. Bring a reporter online
 
