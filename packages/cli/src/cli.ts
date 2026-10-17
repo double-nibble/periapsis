@@ -1,5 +1,6 @@
+import { randomBytes } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { type Registry, keygen, signRegistry } from "@periapsis/core"
+import { type Registry, isId, keygen, signRegistry } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 
 function usage(): never {
@@ -27,6 +28,10 @@ function usage(): never {
       "             [--broker-user U] [--broker-pass P]",
       "                            Assemble hub-config.json from the hub key and",
       "                            the root public key.",
+      "",
+      "  broker-accounts [--registry-file F | --accounts a,b,c]",
+      "                            Generate accounts.conf (NATS per-account auth)",
+      "                            and broker-creds.json.",
       "",
     ].join("\n"),
   )
@@ -153,10 +158,59 @@ function cmdHubConfig(args: string[]): void {
   process.stderr.write(`wrote ${out} (contains the hub box private key — keep it local)\n`)
 }
 
+function cmdBrokerAccounts(args: string[]): void {
+  const f = parseFlags(args)
+  let names: string[]
+  const regFile = f["registry-file"]
+  if (regFile) {
+    const doc = JSON.parse(readFileSync(regFile, "utf8")) as {
+      registry?: { identities?: Record<string, unknown> }
+      identities?: Record<string, unknown>
+    }
+    names = Object.keys(doc.registry?.identities ?? doc.identities ?? {})
+  } else if (f.accounts) {
+    names = f.accounts
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean)
+  } else {
+    usage()
+  }
+  if (!names.includes("hub")) names.push("hub")
+  for (const out of ["accounts.conf", "broker-creds.json"]) {
+    if (existsSync(out)) {
+      process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
+      process.exit(1)
+    }
+  }
+  const creds: Record<string, string> = {}
+  const users: string[] = []
+  for (const name of names) {
+    if (name !== "hub" && !isId(name)) {
+      process.stderr.write(`invalid account id: ${name}\n`)
+      process.exit(1)
+    }
+    const password = randomBytes(24).toString("base64url")
+    creds[name] = password
+    const perms =
+      name === "hub"
+        ? '{ publish: ["commands.>"], subscribe: ["status.>", "_INBOX.>"] }'
+        : `{ publish: ["status.${name}"], subscribe: ["commands.${name}", "_INBOX.>"] }`
+    users.push(`    { user: "${name}", password: "${password}", permissions: ${perms} }`)
+  }
+  const conf = `authorization {\n  users = [\n${users.join("\n")}\n  ]\n}\n`
+  writeFileSync("accounts.conf", conf, { mode: 0o600 })
+  writeFileSync("broker-creds.json", `${JSON.stringify(creds, null, 2)}\n`, { mode: 0o600 })
+  process.stderr.write(
+    "wrote accounts.conf (upload to the broker) and broker-creds.json (keep local)\n",
+  )
+}
+
 const [cmd, ...args] = process.argv.slice(2)
 if (cmd === "keygen" && args[0]) cmdKeygen(args[0])
 else if (cmd === "registry-add" && args[0] && args[1]) cmdRegistryAdd(args[0], args[1])
 else if (cmd === "sign-registry" && args[0] && args[1]) cmdSignRegistry(args[0], args[1])
 else if (cmd === "broker-check" && args[0]) await cmdBrokerCheck(args[0])
 else if (cmd === "hub-config") cmdHubConfig(args)
+else if (cmd === "broker-accounts") cmdBrokerAccounts(args)
 else usage()
