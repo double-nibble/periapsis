@@ -20,6 +20,7 @@
     "@periapsis/transport": "workspace:*"
   },
   "bin": {
-    "periapsis-reporter": "./dist/main.js"
+    "periapsis-reporter": "./dist/main.js",
+    "periapsis-probe": "./dist/probe.js"
   }
 }
