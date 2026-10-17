@@ -121,3 +121,14 @@ test("reporter-config assembles a reporter config from the account key", () => {
   assert.equal(cfg.everyMs, 60000)
   assert.equal(cfg.brokerPass, undefined)
 })
+
+test("broker-accounts --keep preserves existing passwords and mints only new ones", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "broker-accounts", "--accounts", "sub1")
+  const first = JSON.parse(readFileSync(join(dir, "broker-creds.json"), "utf8"))
+  run(dir, "broker-accounts", "--accounts", "sub1,sub2", "--keep", "broker-creds.json")
+  const second = JSON.parse(readFileSync(join(dir, "broker-creds.json"), "utf8"))
+  assert.equal(second.hub, first.hub)
+  assert.equal(second.sub1, first.sub1)
+  assert.ok(second.sub2 && second.sub2 !== first.sub1)
+})
