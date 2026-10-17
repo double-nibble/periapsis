@@ -24,6 +24,7 @@ function usage(): never {
       "",
       "  hub-config --hub-key <hub.key> --root-pub <root.pub.json>",
       "             --broker <wss-url> --registry <url> [--port N] [--data-dir D]",
+      "             [--broker-user U] [--broker-pass P]",
       "                            Assemble hub-config.json from the hub key and",
       "                            the root public key.",
       "",
@@ -138,7 +139,7 @@ function cmdHubConfig(args: string[]): void {
     process.stderr.write(`${rootPub} has no signPublic\n`)
     process.exit(1)
   }
-  const config = {
+  const config: Record<string, unknown> = {
     brokerUrl: broker,
     registryUrl: registry,
     rootSignPublic,
@@ -146,6 +147,8 @@ function cmdHubConfig(args: string[]): void {
     port: f.port ? Number(f.port) : 4747,
     dataDir: f["data-dir"] ?? `${process.env.HOME}/.periapsis-hub`,
   }
+  if (f["broker-user"]) config.brokerUser = f["broker-user"]
+  if (f["broker-pass"]) config.brokerPass = f["broker-pass"]
   writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
   process.stderr.write(`wrote ${out} (contains the hub box private key — keep it local)\n`)
 }
