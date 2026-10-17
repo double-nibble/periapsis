@@ -1,6 +1,6 @@
 // Each agent-backed source names the connector tools headless Claude may use and
 // the contract for what to report. Claude replies with one fenced JSON block.
-import type { Item } from "@periapsis/core"
+import { type Item, isKind } from "@periapsis/core"
 
 export interface AgentSource {
   tools: string[]
@@ -24,9 +24,23 @@ export const AGENT_SOURCES: Record<string, AgentSource> = {
   },
 }
 
-export function buildPrompt(source: string, context: unknown): { prompt: string; tools: string[] } {
-  const spec = AGENT_SOURCES[source]
-  if (!spec) throw new Error(`no agent source for ${source}`)
+// Resolve an agent source: an instance may define it inline via params.tools +
+// params.instructions (optional params.kind), otherwise a built-in is used.
+export function resolveSource(source: string, params: Record<string, unknown> = {}): AgentSource {
+  if (Array.isArray(params.tools) && typeof params.instructions === "string") {
+    const kind = isKind(params.kind) ? params.kind : isKind(source) ? source : "task"
+    return { tools: params.tools.map(String), instructions: params.instructions, kind }
+  }
+  const builtin = AGENT_SOURCES[source]
+  if (!builtin)
+    throw new Error(`no agent source for ${source}; set tools and instructions in params`)
+  return builtin
+}
+
+export function buildPrompt(
+  spec: AgentSource,
+  context: unknown,
+): { prompt: string; tools: string[] } {
   const prompt = `You are refreshing a work dashboard. You can only read, using the connector tools. Be fast.\n\n${spec.instructions}\n\n${OUTPUT}\n\n## Context\n\n\`\`\`json\n${JSON.stringify(context, null, 1)}\n\`\`\`\n`
   return { prompt, tools: spec.tools }
 }
