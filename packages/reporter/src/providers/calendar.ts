@@ -1,4 +1,5 @@
 import type { InstanceConfig, Provider, ProviderItem, ProviderResult } from "../provider.js"
+import { monthWindow } from "./window.js"
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token"
 const CALENDARS = "https://www.googleapis.com/calendar/v3/calendars"
@@ -32,15 +33,6 @@ async function accessToken(id: string, secret: string, refresh: string): Promise
   const json = (await res.json()) as { access_token?: string }
   if (!json.access_token) throw new Error("google token response had no access_token")
   return json.access_token
-}
-
-// Today, in the reporter's local time.
-function today(now: Date): { timeMin: string; timeMax: string } {
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
-  return { timeMin: start.toISOString(), timeMax: end.toISOString() }
 }
 
 async function listCalendars(token: string): Promise<CalendarRef[]> {
@@ -93,7 +85,9 @@ export const calendar: Provider = {
     if (!id || !secret || !refresh)
       throw new Error("calendar instance needs clientId, clientSecret, refreshToken")
     const token = await accessToken(id, secret, refresh)
-    const { timeMin, timeMax } = today(new Date())
+    const { start, end } = monthWindow(new Date())
+    const timeMin = start.toISOString()
+    const timeMax = end.toISOString()
     const calendarId = p.calendarId ? String(p.calendarId) : ""
     const calendars = calendarId ? [{ id: calendarId }] : await listCalendars(token)
     const items: ProviderItem[] = []
