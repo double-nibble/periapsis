@@ -6,7 +6,8 @@
   "bin": { "periapsis": "./dist/cli.js" },
   "main": "./dist/cli.js",
   "dependencies": {
-    "@periapsis/core": "workspace:*"
+    "@periapsis/core": "workspace:*",
+    "@periapsis/transport": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b",
