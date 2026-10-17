@@ -31,3 +31,56 @@ export function presentTypes(items) {
 export function filterByType(items, type) {
   return type === "All" ? items : items.filter((i) => i.source === type)
 }
+
+// --- calendar helpers ---------------------------------------------------
+
+export function startOfDay(d) {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+
+export function startOfWeek(d) {
+  const x = startOfDay(d)
+  x.setDate(x.getDate() - x.getDay())
+  return x
+}
+
+export function weekDays(ref) {
+  const s = startOfWeek(ref)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(s)
+    d.setDate(s.getDate() + i)
+    return d
+  })
+}
+
+export function monthGrid(ref) {
+  const month = ref.getMonth()
+  const nextMonth = new Date(ref.getFullYear(), month + 1, 1)
+  const cursor = startOfWeek(new Date(ref.getFullYear(), month, 1))
+  const weeks = []
+  while (cursor < nextMonth) {
+    const row = []
+    for (let i = 0; i < 7; i++) {
+      row.push(new Date(cursor))
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    weeks.push(row)
+  }
+  return weeks
+}
+
+export function sameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+export function eventsOn(items, date) {
+  return items
+    .filter((i) => i.meta?.at && sameDay(new Date(i.meta.at), date))
+    .sort((a, b) => a.meta.at.localeCompare(b.meta.at))
+}
