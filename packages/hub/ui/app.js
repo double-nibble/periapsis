@@ -1,34 +1,50 @@
+import { itemsFor, urgent } from "./view.js"
+
 const roster = document.getElementById("roster")
 const detail = document.getElementById("detail")
 const schedule = document.getElementById("schedule")
+const toggle = document.getElementById("nav-toggle")
 
 let model = { accounts: [], schedule: [] }
-let selected = null
+let who = null
 
-function urgentCount(items) {
-  return items.filter((i) => i.priority === 1).length
+const NAV_KEY = "periapsis.nav.collapsed"
+
+function setCollapsed(collapsed) {
+  document.body.classList.toggle("nav-collapsed", collapsed)
+  toggle.setAttribute("aria-expanded", String(!collapsed))
+  try {
+    localStorage.setItem(NAV_KEY, collapsed ? "1" : "0")
+  } catch {}
+}
+
+toggle.addEventListener("click", () => {
+  setCollapsed(!document.body.classList.contains("nav-collapsed"))
+})
+
+function rosterButton(label, items) {
+  const btn = document.createElement("button")
+  btn.className = "acct"
+  btn.setAttribute("aria-current", String(label === who))
+  const u = urgent(items)
+  const name = document.createElement("span")
+  name.className = "name"
+  name.textContent = label
+  const count = document.createElement("span")
+  count.className = u > 0 ? "count urgent mono" : "count mono"
+  count.textContent = u > 0 ? `${items.length} · ${u}!` : String(items.length)
+  btn.append(name, count)
+  btn.addEventListener("click", () => {
+    who = label
+    render()
+  })
+  return btn
 }
 
 function renderRoster() {
   roster.replaceChildren()
-  for (const acct of model.accounts) {
-    const btn = document.createElement("button")
-    btn.className = "acct"
-    btn.setAttribute("aria-current", String(acct.account === selected))
-    const u = urgentCount(acct.items)
-    const name = document.createElement("span")
-    name.className = "name"
-    name.textContent = acct.account
-    const count = document.createElement("span")
-    count.className = u > 0 ? "count urgent mono" : "count mono"
-    count.textContent = u > 0 ? `${acct.items.length} · ${u}!` : String(acct.items.length)
-    btn.append(name, count)
-    btn.addEventListener("click", () => {
-      selected = acct.account
-      render()
-    })
-    roster.append(btn)
-  }
+  roster.append(rosterButton("All", itemsFor(model, "All")))
+  for (const acct of model.accounts) roster.append(rosterButton(acct.account, acct.items))
 }
 
 function renderSchedule() {
@@ -48,83 +64,99 @@ function renderSchedule() {
     const ev = document.createElement("span")
     ev.className = "ev"
     ev.textContent = s.title
-    const who = document.createElement("span")
-    who.className = "who"
-    who.textContent = s.account
-    slot.append(time, ev, who)
+    const w = document.createElement("span")
+    w.className = "who"
+    w.textContent = s.account
+    slot.append(time, ev, w)
     schedule.append(slot)
   }
 }
 
+function itemRow(item, fleet) {
+  const row = document.createElement("div")
+  row.className = `item p${item.priority}`
+  const bar = document.createElement("div")
+  bar.className = "bar"
+  const mid = document.createElement("div")
+  const title = document.createElement("div")
+  title.className = "title"
+  if (item.url) {
+    const a = document.createElement("a")
+    a.href = item.url
+    a.textContent = item.title
+    a.target = "_blank"
+    a.rel = "noreferrer"
+    title.append(a)
+  } else {
+    title.textContent = item.title
+  }
+  mid.append(title)
+  if (item.detail) {
+    const d = document.createElement("div")
+    d.className = "detail-text"
+    d.textContent = item.detail
+    mid.append(d)
+  }
+  const tags = document.createElement("div")
+  tags.className = "tags"
+  if (fleet) {
+    const acct = document.createElement("span")
+    acct.className = "who-tag mono"
+    acct.textContent = item.account
+    tags.append(acct)
+  }
+  const kind = document.createElement("span")
+  kind.className = "kind"
+  kind.textContent = item.kind
+  tags.append(kind)
+  row.append(bar, mid, tags)
+  return row
+}
+
 function renderDetail() {
   detail.replaceChildren()
-  const acct = model.accounts.find((a) => a.account === selected)
-  if (!acct) {
+  if (!who) {
     const p = document.createElement("p")
     p.className = "empty-detail"
     p.textContent = "Select an account to see what it needs."
     detail.append(p)
     return
   }
+  const fleet = who === "All"
+  const items = itemsFor(model, who)
   const bySource = new Map()
-  for (const item of acct.items) {
+  for (const item of items) {
     const list = bySource.get(item.source) ?? []
     list.push(item)
     bySource.set(item.source, list)
   }
-  for (const [source, items] of bySource) {
-    const group = document.createElement("div")
-    group.className = "srcgroup"
+  for (const [source, group] of bySource) {
+    const box = document.createElement("div")
+    box.className = "srcgroup"
     const head = document.createElement("div")
     head.className = "srchead"
     const label = document.createElement("span")
     label.textContent = source
     const inst = document.createElement("span")
     inst.className = "inst"
-    inst.textContent = [...new Set(items.map((i) => i.meta.instance).filter(Boolean))].join(" / ")
+    inst.textContent = [...new Set(group.map((i) => i.meta.instance).filter(Boolean))].join(" / ")
     head.append(label, inst)
-    group.append(head)
-    for (const item of items) {
-      const row = document.createElement("div")
-      row.className = `item p${item.priority}`
-      const bar = document.createElement("div")
-      bar.className = "bar"
-      const mid = document.createElement("div")
-      const title = document.createElement("div")
-      title.className = "title"
-      if (item.url) {
-        const a = document.createElement("a")
-        a.href = item.url
-        a.textContent = item.title
-        a.target = "_blank"
-        a.rel = "noreferrer"
-        title.append(a)
-      } else {
-        title.textContent = item.title
-      }
-      mid.append(title)
-      if (item.detail) {
-        const d = document.createElement("div")
-        d.className = "detail-text"
-        d.textContent = item.detail
-        mid.append(d)
-      }
-      const kind = document.createElement("div")
-      kind.className = "kind"
-      kind.textContent = item.kind
-      row.append(bar, mid, kind)
-      group.append(row)
-    }
-    detail.append(group)
+    box.append(head)
+    for (const item of group) box.append(itemRow(item, fleet))
+    detail.append(box)
   }
 }
 
 function render() {
-  if (!selected && model.accounts.length) selected = model.accounts[0].account
+  if (!who && model.accounts.length) who = "All"
   renderSchedule()
   renderRoster()
   renderDetail()
 }
+
+try {
+  setCollapsed(localStorage.getItem(NAV_KEY) === "1")
+} catch {}
 
 const es = new EventSource("/api/events")
 es.addEventListener("model", (e) => {
