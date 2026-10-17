@@ -165,6 +165,20 @@ function dayCell(items, day, now, className) {
   return cell
 }
 
+function weekGridEl(items, now, extra = "") {
+  const grid = document.createElement("div")
+  grid.className = `cal-week${extra}`
+  for (const day of weekDays(now)) {
+    const cell = dayCell(items, day, now, "cal-day")
+    const h = document.createElement("div")
+    h.className = "cal-dayhead"
+    h.textContent = `${DOW[day.getDay()]} ${day.getDate()}`
+    cell.prepend(h)
+    grid.append(cell)
+  }
+  return grid
+}
+
 function renderCalendar(items) {
   const now = new Date()
   const wrap = document.createElement("div")
@@ -183,17 +197,7 @@ function renderCalendar(items) {
     for (const it of evs) col.append(eventChip(it))
     wrap.append(col)
   } else if (calRange === "week") {
-    const grid = document.createElement("div")
-    grid.className = "cal-week"
-    for (const day of weekDays(now)) {
-      const cell = dayCell(items, day, now, "cal-day")
-      const h = document.createElement("div")
-      h.className = "cal-dayhead"
-      h.textContent = `${DOW[day.getDay()]} ${day.getDate()}`
-      cell.prepend(h)
-      grid.append(cell)
-    }
-    wrap.append(grid)
+    wrap.append(weekGridEl(items, now))
   } else {
     const grid = document.createElement("div")
     grid.className = "cal-month"
@@ -233,6 +237,18 @@ function renderDetail() {
   if (type === "calendar") {
     renderCalendar(items)
     return
+  }
+  if (type === "All") {
+    const cals = items.filter((i) => i.source === "calendar")
+    if (cals.length > 0) {
+      const sec = document.createElement("div")
+      sec.className = "allweek"
+      const h = document.createElement("div")
+      h.className = "allweek-head"
+      h.textContent = "This week"
+      sec.append(h, weekGridEl(cals, new Date(), " compact"))
+      detail.append(sec)
+    }
   }
   const bySource = new Map()
   for (const item of items) {
