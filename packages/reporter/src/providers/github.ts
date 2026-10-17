@@ -50,7 +50,7 @@ async function graphql(
     headers: { authorization: `bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({ query: q, variables }),
   })
-  if (!res.ok) throw new Error(`GitHub API ${res.status}`)
+  if (!res.ok) throw new Error(`GitHub API ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const json = (await res.json()) as {
     data?: { search: { nodes: PrNode[] } }
     errors?: { message: string }[]

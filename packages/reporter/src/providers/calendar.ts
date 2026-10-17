@@ -28,7 +28,7 @@ async function accessToken(id: string, secret: string, refresh: string): Promise
       grant_type: "refresh_token",
     }),
   })
-  if (!res.ok) throw new Error(`google token ${res.status}`)
+  if (!res.ok) throw new Error(`google token ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const json = (await res.json()) as { access_token?: string }
   if (!json.access_token) throw new Error("google token response had no access_token")
   return json.access_token
@@ -45,7 +45,7 @@ function today(now: Date): { timeMin: string; timeMax: string } {
 
 async function listCalendars(token: string): Promise<CalendarRef[]> {
   const res = await fetch(CALENDAR_LIST, { headers: { authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new Error(`calendarList ${res.status}`)
+  if (!res.ok) throw new Error(`calendarList ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const json = (await res.json()) as { items?: CalendarRef[] }
   return json.items ?? []
 }
@@ -60,7 +60,7 @@ async function fetchEvents(
   const res = await fetch(`${CALENDARS}/${encodeURIComponent(calendarId)}/events?${q}`, {
     headers: { authorization: `Bearer ${token}` },
   })
-  if (!res.ok) throw new Error(`calendar API ${res.status}`)
+  if (!res.ok) throw new Error(`calendar API ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const json = (await res.json()) as { items?: GoogleEvent[] }
   return json.items ?? []
 }
