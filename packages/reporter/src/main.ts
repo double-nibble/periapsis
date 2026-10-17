@@ -4,6 +4,7 @@ import { NatsBroker } from "@periapsis/transport"
 import type { Provider } from "./provider.js"
 import { calendar } from "./providers/calendar.js"
 import { github } from "./providers/github.js"
+import { ical } from "./providers/ical.js"
 import { type ReporterConfig, startReporter } from "./runtime.js"
 
 const log = createLogger("reporter")
