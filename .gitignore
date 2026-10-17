@@ -23,3 +23,6 @@ hub-config.json
 registry.json
 signed-registry.json
 reporter-*.json
+broker-creds.json
+accounts.conf
+instances*.json
