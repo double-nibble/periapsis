@@ -28,103 +28,69 @@ by account, so one view aggregates many agents without conflating them.
 - `packages/cli` — operator commands: keygen, registry signing.
 - `deploy/` — Terraform for the broker and registry.
 
-## Setup
+## Infrastructure
 
-Three kinds of participant: the **infrastructure** (broker + registry), the **hub**
-(your dashboard), and one or more **reporters** (on your subaccount machines). Set them
-up in order. All commands run from the repo root unless noted.
+Stand up the broker and registry, mint the fleet's keys, and credential the broker. Done
+once from your workstation. You need a domain in Route53 and its hosted zone id, and the
+full list of accounts you will run.
 
-### Prerequisites
-
-Build the repo once:
+Build the repo. If you authenticated to AWS with `aws login`, export the bridge profile so
+Terraform can read your credentials:
 
 ```
 pnpm install && pnpm build
-```
-
-If you authenticated to AWS with `aws login` (your credentials show as type `login`),
-export the bridge profile so Terraform can read them:
-
-```
 export AWS_PROFILE=terraform-login
 ```
 
-You also need a domain in Route53 and its hosted zone id.
-
-### 1. Infrastructure
+Apply the broker + registry, then export the outputs:
 
 ```
 cd deploy
 cp terraform.tfvars.example terraform.tfvars
-```
-
-Edit `terraform.tfvars` — set `domain`, `zone_id`, `allowed_cidrs` (your hub and reporter
-source IPs), `letsencrypt_email`, and your network: `vpc_id` and a **public** `subnet_id`
-(its route table sends `0.0.0.0/0` to the VPC's internet gateway, and it auto-assigns a
-public IP). The broker has no internet access otherwise, and SSM, cert issuance, and the
-broker itself will all fail silently. Then:
-
-```
+# edit terraform.tfvars: domain, zone_id, allowed_cidrs, letsencrypt_email,
+# vpc_id, and a public subnet_id (route to an internet gateway, auto-assigned public IP)
 terraform init
 terraform apply
-```
-
-When it finishes, configure some environment variables from the outputs:
-
-```
 export REGISTRY_BUCKET="$(terraform output -raw registry_bucket)"
 export REGISTRY_URL="$(terraform output -raw registry_url)"
 export BROKER_INSTANCE_ID="$(terraform output -raw broker_instance_id)"
 export BROKER_URL="$(terraform output -raw broker_url)"
+cd ..
 ```
 
-Verify the broker is up and listening (NATS over secure WebSocket on 443):
+Verify the broker is up (NATS over secure WebSocket on 443):
 
 ```
 node packages/cli/dist/cli.js broker-check "$BROKER_URL"
 ```
 
-It connects through periapsis's own client and prints the broker's server `INFO`
-(version, max payload, TLS), exiting non-zero if the broker cannot be reached. Two
-ad-hoc alternatives: `websocat "$BROKER_URL"` shows the raw `INFO` line the server
-sends on connect, and `nats --server "$BROKER_URL" rtt` reports a round-trip time.
+`websocat "$BROKER_URL"` shows the raw server `INFO`; `nats --server "$BROKER_URL" rtt`
+reports a round-trip.
 
-### 2. Keys
-
-Generate the root key (the fleet's trust anchor — back up `root.key`), the hub key, and a
-key for your first account. Each writes a private `.key` and a public `.pub.json`:
+Generate the root key (the trust anchor — back up `root.key`), the hub key, and one key
+per account, then publish a signed registry containing all of them:
 
 ```
-cd ..
 node packages/cli/dist/cli.js keygen root
 node packages/cli/dist/cli.js keygen hub
 node packages/cli/dist/cli.js keygen sub1
-```
-
-### 3. Publish the registry
-
-Upload a signed registry containing the hub and the account:
-
-```
-packages/cli/scripts/publish-registry.sh root.key "$REGISTRY_BUCKET" hub.pub.json sub1.pub.json
+node packages/cli/dist/cli.js keygen sub2
+packages/cli/scripts/publish-registry.sh root.key "$REGISTRY_BUCKET" \
+  hub.pub.json sub1.pub.json sub2.pub.json
 curl -sS "$REGISTRY_URL"
 ```
 
-The curl should return signed JSON containing the `hub` and `sub1` identities.
-
-### 4. Broker credentials
-
-Generate the broker's NATS auth from the registry. Every identity becomes a user: each
-account may publish only its own `status.<account>` subject and subscribe its own
-`commands.<account>`; the hub subscribes `status.>` and publishes `commands.>`.
+Generate the broker's NATS auth from the registry — each account may publish only its own
+`status.<account>` and subscribe its own `commands.<account>`; the hub subscribes
+`status.>` and publishes `commands.>`:
 
 ```
 curl -sS "$REGISTRY_URL" > signed-registry.json
 node packages/cli/dist/cli.js broker-accounts --registry-file signed-registry.json
 ```
 
-This writes `accounts.conf` (install on the broker) and `broker-creds.json` (the
-generated passwords — keep it local). Install `accounts.conf` and restart NATS:
+This writes `accounts.conf` and `broker-creds.json` (the passwords — keep it local).
+Install `accounts.conf` on the broker and restart NATS:
 
 ```
 aws ssm start-session --target "$BROKER_INSTANCE_ID"
@@ -141,14 +107,15 @@ sudo systemctl restart nats
 exit
 ```
 
-Re-running `broker-accounts` regenerates every password, so rebuild the hub and reporter
-configs below whenever you run it.
+## Hub
 
-### 5. Run the hub
-
-Assemble the hub config, including its broker credentials, then run it:
+Runs on your dashboard machine. Copy `hub.key`, `root.pub.json`, and `broker-creds.json`
+there, set your broker and registry URLs, build, then assemble the hub config and run it:
 
 ```
+export BROKER_URL="wss://api.<your-domain>"
+export REGISTRY_URL="https://status.<your-domain>/registry.json"
+pnpm install && pnpm build
 node packages/cli/dist/cli.js hub-config \
   --hub-key hub.key --root-pub root.pub.json \
   --broker "$BROKER_URL" --registry "$REGISTRY_URL" \
@@ -156,22 +123,24 @@ node packages/cli/dist/cli.js hub-config \
 node packages/hub/dist/main.js hub-config.json
 ```
 
-The hub ingests sealed status from reporters and serves the dashboard at
-`http://127.0.0.1:4747`. Open it in a browser.
-
-The hub runs in the foreground; from another shell, verify it is serving:
+The hub serves the dashboard at `http://127.0.0.1:4747`. From another shell:
 
 ```
 curl -sS http://127.0.0.1:4747/api/model
 ```
 
-It returns the aggregated fleet model as JSON — empty until a reporter publishes.
+It returns the aggregated fleet model as JSON, empty until a reporter publishes.
 
-### 6. Bring a reporter online
+## Reporters
 
-Write the provider config, editing in each instance's token and login:
+One reporter per account, on that account's machine. Copy that account's `<account>.key`,
+`root.pub.json`, and its password from `broker-creds.json` to the machine. Set the URLs,
+build, and write the account's provider config (edit in each instance's token and login):
 
 ```
+export BROKER_URL="wss://api.<your-domain>"
+export REGISTRY_URL="https://status.<your-domain>/registry.json"
+pnpm install && pnpm build
 cat > instances.json <<'EOF'
 [ { "provider": "github", "instance": "mygh", "params": { "token": "YOUR_TOKEN", "login": "YOUR_LOGIN" } } ]
 EOF
@@ -181,22 +150,16 @@ Assemble the reporter config and run it. The NATS password comes from the enviro
 it never lands in your shell history:
 
 ```
-export PERIAPSIS_BROKER_PASS="$(jq -r .sub1 broker-creds.json)"
+export PERIAPSIS_BROKER_PASS="<this account's password from broker-creds.json>"
 node packages/cli/dist/cli.js reporter-config \
   --account sub1 --account-key sub1.key --root-pub root.pub.json \
   --broker "$BROKER_URL" --registry "$REGISTRY_URL" --instances instances.json
 node packages/reporter/dist/main.js reporter-config.json
 ```
 
-Within a minute `sub1` appears on the dashboard, labeled by account.
-
-To add another account: generate its key (`keygen <account>`), admit it (step 3), re-run
-broker credentials (step 4), and assemble a reporter config for it (this step). On a
-dedicated subaccount machine, the installer automates the keygen and launchd setup:
-
-```
-curl -fsSL https://raw.githubusercontent.com/double-nibble/periapsis/main/packages/reporter/install/install.sh | bash
-```
+Within a minute the account appears on the dashboard, labeled by account and locked to its
+own `status.<account>` subject. Repeat on each account's machine with that account's key
+and password.
 
 ## Develop
 
