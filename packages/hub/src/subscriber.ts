@@ -2,11 +2,14 @@ import {
   type Envelope,
   type RegistryClient,
   type Snapshot,
+  createLogger,
   open,
   validateSnapshot,
 } from "@periapsis/core"
 import type { Broker } from "@periapsis/transport"
 import type { Store } from "./store.js"
+
+const log = createLogger("hub.ingest")
 
 export interface Subscriber {
   stop(): void
@@ -33,6 +36,7 @@ export async function startSubscriber(deps: SubscriberDeps): Promise<Subscriber>
     let snapshot: Snapshot
     try {
       const env = JSON.parse(new TextDecoder().decode(data)) as Envelope
+      log.debug("received", { from: env.from, bytes: data.length })
       const sender = deps.registry.identity(env.from)
       if (!sender) throw new Error(`unknown sender ${env.from}`)
       const payload = open(env, deps.hubBoxPrivate, sender.signPublic, { seen, now: now() })
@@ -41,9 +45,22 @@ export async function startSubscriber(deps: SubscriberDeps): Promise<Subscriber>
       onError(err)
       return
     }
-    if (snapshot.failed) return
+    if (snapshot.failed) {
+      log.info("source unavailable", {
+        account: snapshot.account,
+        source: snapshot.source,
+        note: snapshot.note ?? "",
+      })
+      return
+    }
+    log.debug("opened", {
+      account: snapshot.account,
+      source: snapshot.source,
+      items: snapshot.items.length,
+    })
     try {
       deps.store.reconcile(snapshot.account, snapshot.source, snapshot.items, now())
+      log.debug("reconciled", { account: snapshot.account, source: snapshot.source })
     } catch (err) {
       onError(err)
     }

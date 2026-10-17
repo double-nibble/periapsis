@@ -21,3 +21,4 @@ export {
   type SignedRegistry,
 } from "./registry.js"
 export { RegistryClient, type RegistryClientConfig } from "./registry-client.js"
+export { createLogger, type Logger, type LogLevel } from "./log.js"

@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs"
-import { RegistryClient } from "@periapsis/core"
+import { RegistryClient, createLogger } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 import type { Provider } from "./provider.js"
 import { github } from "./providers/github.js"
 import { type ReporterConfig, startReporter } from "./runtime.js"
+
+const log = createLogger("reporter")
 
 interface FileConfig {
   account: string
@@ -26,6 +28,7 @@ export async function main(configPath: string): Promise<void> {
   if (!hub) throw new Error("registry has no hub identity")
 
   const broker = await NatsBroker.connect({ servers: cfg.brokerUrl })
+  log.info("broker connected", { url: cfg.brokerUrl })
   startReporter(
     broker,
     PROVIDERS,
@@ -35,9 +38,9 @@ export async function main(configPath: string): Promise<void> {
       hub,
       everyMs: cfg.everyMs,
     },
-    (err) => process.stderr.write(`reporter error: ${(err as Error).message}\n`),
+    (err) => log.error("reporter error", { err: (err as Error).message }),
   )
-  process.stderr.write(`periapsis reporter running for ${cfg.account}\n`)
+  log.info("reporter running", { account: cfg.account })
 }
 
 const configPath = process.argv[2]

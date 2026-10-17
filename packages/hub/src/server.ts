@@ -2,8 +2,11 @@ import { readFile } from "node:fs/promises"
 import { type Server, createServer } from "node:http"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { createLogger } from "@periapsis/core"
 import { type Model, buildModel } from "./model.js"
 import type { Store } from "./store.js"
+
+const log = createLogger("hub.http")
 
 const UI_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "ui")
 
@@ -25,6 +28,7 @@ export function startServer(store: Store, port: number, now: () => number = Date
 
   const server = createServer(async (req, res) => {
     const url = req.url ?? "/"
+    log.debug("request", { method: req.method, url })
     if (url === "/api/model") {
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" })
       res.end(JSON.stringify(model))
@@ -38,7 +42,11 @@ export function startServer(store: Store, port: number, now: () => number = Date
       })
       res.write(`event: model\ndata: ${JSON.stringify(model)}\n\n`)
       clients.add(res)
-      req.on("close", () => clients.delete(res))
+      log.debug("sse open", { clients: clients.size })
+      req.on("close", () => {
+        clients.delete(res)
+        log.debug("sse close", { clients: clients.size })
+      })
       return
     }
     const file = url === "/" ? "index.html" : url.slice(1)
