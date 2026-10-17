@@ -3,6 +3,7 @@ import type { Broker } from "@periapsis/transport"
 import { type AgentRunner, collectAgentInstance } from "./agent/collect.js"
 import { toItem } from "./collect.js"
 import type { AccountConfig, InstanceConfig, Provider } from "./provider.js"
+import { loadProvider } from "./providers/load.js"
 import { publishStatus } from "./publish.js"
 
 const log = createLogger("reporter")
@@ -37,8 +38,10 @@ async function collectInstance(
   if (inst.mode === "agent") {
     return collectAgentInstance(account, source, inst, config.runAgent, config.model)
   }
-  const provider = providers.get(inst.provider ?? "")
-  if (!provider) throw new Error(`no provider for ${inst.provider}`)
+  const provider = inst.module
+    ? await loadProvider(inst.module)
+    : providers.get(inst.provider ?? "")
+  if (!provider) throw new Error(`no provider for ${inst.provider ?? inst.module}`)
   const result = await provider.read(inst)
   return result.items.map((raw) => toItem(raw, account, source, inst.instance))
 }

@@ -79,7 +79,7 @@ function toItem(pr: PrNode, instance: string, mine: boolean): ProviderItem {
 // Params: { token: string, login: string }. Reads PRs authored by and awaiting
 // review from the login, normalized to pr items.
 export const github: Provider = {
-  source: "github",
+  source: "code",
   async read(config: InstanceConfig): Promise<ProviderResult> {
     const params = config.params ?? {}
     const token = String(params.token ?? "")
