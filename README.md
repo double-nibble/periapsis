@@ -192,24 +192,34 @@ publish to NATS.
 
 ### Adding a provider
 
-- **A new direct provider** (a new API client): add a `Provider` under
-  `packages/reporter/src/providers/`, register it in `providers/all.ts`, and document it.
-  This changes the reporter, so it needs a PR.
-- **A new agent source** (the same data via a Claude connector): define it inline in the
-  instance `params` (`tools`, `instructions`, `kind`) — config only, no PR. Promote a
-  frequently used one to a built-in in `agent/sources.ts` with a PR.
+**A new provider of an existing type** (e.g. Bitbucket or GitLab under `code`) needs no PR:
 
-Either way, test it with `periapsis-probe`, then add the instance to a reporter's
+- *direct* — write a module whose default export is a `Provider` (a `source` string and an
+  async `read` returning items), and point an instance at it with `module`.
+- *agent* — define the source inline in the instance `params` (`tools`, `instructions`,
+  `kind`), gathered through the machine's Claude connectors.
+
+Built-in providers ship in `packages/reporter/src/providers/` (registered in
+`providers/all.ts`); a frequently used external provider or inline agent source can be
+promoted to a built-in with a PR.
+
+**A new type** — a category with no existing item kind (say, a doorbell notification) —
+needs a PR to periapsis: it adds the kind to the taxonomy and its dashboard rendering.
+
+Either way, test with `periapsis-probe`, then add the instance to a reporter's
 `instances.json`.
 
 ## Providers
 
-A reporter's `instances.json` is an array of instances. Each names a `source` (the abstract
-kind — `github`, `calendar`, …) that groups it on the dashboard, and is gathered one of two
-ways, set by `mode`:
+A reporter's `instances.json` is an array of instances. Each names a `source` — the abstract
+**type** (`code`, `calendar`, `messages`, …) that groups it on the dashboard. A **provider**
+implements a type: GitHub, GitLab and Bitbucket are providers of `code`; `gcal` and `ical`
+are providers of `calendar`. An instance is gathered one of two ways, set by `mode`:
 
-- **direct** (default) — a built-in provider calls the service's API. Needs a token or
-  credential in `params` but no local Claude; `provider` names the client.
+- **direct** (default) — a provider calls the service's API. Needs a token or credential in
+  `params` but no local Claude. `provider` names a built-in; `module` points at an external
+  provider module (its default export is a `Provider`), so a provider of an existing type
+  can be plugged in without changing periapsis.
 - **agent** — the reporter runs the machine's headless `claude` with that source's
   connector tools. No token: it uses the connectors already authenticated in that Claude.
   Needs the `claude` CLI and the relevant connectors on the reporter machine, and spends
@@ -221,7 +231,7 @@ The sealed item shape and the `status.<account>` flow are identical either way.
 
 #### github
 
-Open pull requests authored by, and awaiting review from, a GitHub login. Source: `github`.
+Open pull requests authored by, and awaiting review from, a GitHub login. Type: `code`.
 
 ```json
 { "provider": "github", "instance": "mygh", "params": { "token": "<github token>", "login": "<github login>" } }
@@ -259,6 +269,18 @@ events.
 
 - `icsUrl` — a private ICS feed URL. In Google Calendar: *Settings → <your calendar> →
   Integrate calendar → Secret address in iCal format*. Any ICS feed URL also works.
+
+#### An external provider
+
+A provider of an existing type can live outside this repo. Point an instance at its module;
+set `source` to the type so it groups with the built-ins:
+
+```json
+{ "source": "code", "provider": "bitbucket", "mode": "direct", "module": "./providers/bitbucket.js",
+  "params": { "workspace": "...", "token": "..." } }
+```
+
+The module's default export must be a `Provider` (a `source` string and an async `read`).
 
 ### Agent sources
 
