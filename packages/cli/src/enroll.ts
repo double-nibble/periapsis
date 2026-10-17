@@ -64,3 +64,20 @@ export function applyEnrollment(
   registry.signedAt = Date.now()
   accounts[blob.account] = { nkey: blob.nkey }
 }
+
+// The NATS permissions for an account: the hub sees the whole fleet; a reporter
+// is locked to its own status subject and command inbox.
+export function permissionsFor(name: string): string {
+  return name === "hub"
+    ? '{ publish: ["commands.>"], subscribe: ["status.>", "_INBOX.>"] }'
+    : `{ publish: ["status.${name}"], subscribe: ["commands.${name}", "_INBOX.>"] }`
+}
+
+// A NATS authorization block that authenticates each account by its nkey. No
+// passwords: possession of the matching seed is the only credential.
+export function accountsConf(accounts: AccountsMap): string {
+  const users = Object.entries(accounts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, { nkey }]) => `    { nkey: "${nkey}", permissions: ${permissionsFor(name)} }`)
+  return `authorization {\n  users = [\n${users.join("\n")}\n  ]\n}\n`
+}
