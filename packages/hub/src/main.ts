@@ -16,6 +16,7 @@ interface HubFileConfig {
   dataDir?: string
   brokerUser?: string
   brokerPass?: string
+  natsSeed?: string
 }
 
 export async function main(configPath: string): Promise<void> {
@@ -29,6 +30,7 @@ export async function main(configPath: string): Promise<void> {
   const store = openStore(cfg.dataDir ? `${cfg.dataDir}/hub.db` : ":memory:")
   const broker = await NatsBroker.connect({
     servers: cfg.brokerUrl,
+    nkeySeed: cfg.natsSeed,
     user: cfg.brokerUser,
     pass: cfg.brokerPass,
   })
