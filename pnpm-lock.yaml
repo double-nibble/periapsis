@@ -26,6 +26,9 @@ importers:
       '@periapsis/transport':
         specifier: workspace:*
         version: link:../transport
+      nkeys.js:
+        specifier: ^1.1.0
+        version: 1.1.0
 
   packages/core: {}
 
@@ -181,10 +184,8 @@ snapshots:
   nkeys.js@1.1.0:
     dependencies:
       tweetnacl: 1.0.3
-    optional: true
 
-  tweetnacl@1.0.3:
-    optional: true
+  tweetnacl@1.0.3: {}
 
   typescript@5.9.3: {}
 
