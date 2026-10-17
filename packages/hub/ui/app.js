@@ -1,4 +1,13 @@
-import { filterByType, itemsFor, presentTypes, urgent } from "./view.js"
+import {
+  eventsOn,
+  filterByType,
+  itemsFor,
+  monthGrid,
+  presentTypes,
+  sameDay,
+  urgent,
+  weekDays,
+} from "./view.js"
 
 const roster = document.getElementById("roster")
 const detail = document.getElementById("detail")
@@ -8,6 +17,7 @@ const toggle = document.getElementById("nav-toggle")
 let model = { accounts: [], schedule: [] }
 let who = null
 let type = "All"
+let calRange = "week"
 
 const NAV_KEY = "periapsis.nav.collapsed"
 
@@ -106,6 +116,109 @@ function itemRow(item, fleet) {
   return row
 }
 
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+function hhmm(at) {
+  const d = new Date(at)
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+}
+
+function eventChip(item) {
+  const chip = document.createElement(item.url ? "a" : "div")
+  chip.className = "cal-ev"
+  if (item.url) {
+    chip.href = item.url
+    chip.target = "_blank"
+    chip.rel = "noreferrer"
+  }
+  const t = document.createElement("span")
+  t.className = "cal-time mono"
+  t.textContent = hhmm(item.meta.at)
+  const ti = document.createElement("span")
+  ti.className = "cal-title"
+  ti.textContent = item.title
+  chip.append(t, ti)
+  return chip
+}
+
+function calSwitch() {
+  const bar = document.createElement("div")
+  bar.className = "cal-switch"
+  for (const r of ["today", "week", "month"]) {
+    const btn = document.createElement("button")
+    btn.className = "cal-range"
+    btn.textContent = r
+    btn.setAttribute("aria-current", String(r === calRange))
+    btn.addEventListener("click", () => {
+      calRange = r
+      render()
+    })
+    bar.append(btn)
+  }
+  return bar
+}
+
+function dayCell(items, day, now, className) {
+  const cell = document.createElement("div")
+  cell.className = className + (sameDay(day, now) ? " today" : "")
+  for (const it of eventsOn(items, day)) cell.append(eventChip(it))
+  return cell
+}
+
+function renderCalendar(items) {
+  const now = new Date()
+  const wrap = document.createElement("div")
+  wrap.className = "cal"
+  wrap.append(calSwitch())
+  if (calRange === "today") {
+    const col = document.createElement("div")
+    col.className = "cal-agenda"
+    const evs = eventsOn(items, now)
+    if (evs.length === 0) {
+      const e = document.createElement("p")
+      e.className = "empty-detail"
+      e.textContent = "Nothing scheduled today."
+      col.append(e)
+    }
+    for (const it of evs) col.append(eventChip(it))
+    wrap.append(col)
+  } else if (calRange === "week") {
+    const grid = document.createElement("div")
+    grid.className = "cal-week"
+    for (const day of weekDays(now)) {
+      const cell = dayCell(items, day, now, "cal-day")
+      const h = document.createElement("div")
+      h.className = "cal-dayhead"
+      h.textContent = `${DOW[day.getDay()]} ${day.getDate()}`
+      cell.prepend(h)
+      grid.append(cell)
+    }
+    wrap.append(grid)
+  } else {
+    const grid = document.createElement("div")
+    grid.className = "cal-month"
+    for (const d of DOW) {
+      const h = document.createElement("div")
+      h.className = "cal-dow"
+      h.textContent = d
+      grid.append(h)
+    }
+    for (const week of monthGrid(now)) {
+      for (const day of week) {
+        const off = day.getMonth() !== now.getMonth()
+        const cell = dayCell(items, day, now, `cal-cell${off ? " off" : ""}`)
+        const n = document.createElement("div")
+        n.className = "cal-num"
+        n.textContent = String(day.getDate())
+        cell.prepend(n)
+        grid.append(cell)
+      }
+    }
+    wrap.append(grid)
+  }
+  detail.append(wrap)
+}
+
 function renderDetail() {
   detail.replaceChildren()
   if (!who) {
@@ -117,6 +230,10 @@ function renderDetail() {
   }
   const fleet = who === "All"
   const items = filterByType(itemsFor(model, who), type)
+  if (type === "calendar") {
+    renderCalendar(items)
+    return
+  }
   const bySource = new Map()
   for (const item of items) {
     const list = bySource.get(item.source) ?? []
