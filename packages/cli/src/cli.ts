@@ -19,6 +19,10 @@ function usage(): never {
       "                            Writes <name>.key (private, keep local) and",
       "                            prints the public identity JSON to stdout.",
       "",
+      "  bootstrap --broker <wss-url> --registry <url> --root-pub <root.pub.json>",
+      "                            Write bootstrap.json (public broker URL, registry URL,",
+      "                            and root signing key) for the installer to fetch.",
+      "",
       "  reporter-enroll --account A --broker <wss-url> --registry <url>",
       "             --root-pub <root.pub.json> [--instances F] [--every-ms N] [--out F]",
       "                            On the reporter: generate its own identity and nkey,",
@@ -393,7 +397,27 @@ function cmdEnroll(args: string[]): void {
   )
 }
 
-if (cmd === "reporter-enroll") cmdReporterEnroll(args)
+function cmdBootstrap(args: string[]): void {
+  const f = parseFlags(args)
+  const broker = f.broker
+  const registry = f.registry
+  const rootPub = f["root-pub"]
+  if (!broker || !registry || !rootPub) usage()
+  const rootSignPublic = rootSignPublicFrom(
+    JSON.parse(readFileSync(rootPub, "utf8")) as Record<string, unknown>,
+  )
+  if (!rootSignPublic) {
+    process.stderr.write(`${rootPub} has no signPublic\n`)
+    process.exit(1)
+  }
+  const out = f.out ?? "bootstrap.json"
+  const doc = { brokerUrl: broker, registryUrl: registry, rootSignPublic }
+  writeFileSync(out, `${JSON.stringify(doc, null, 2)}\n`)
+  process.stderr.write(`wrote ${out} (public — upload it to your status site)\n`)
+}
+
+if (cmd === "bootstrap") cmdBootstrap(args)
+else if (cmd === "reporter-enroll") cmdReporterEnroll(args)
 else if (cmd === "enroll") cmdEnroll(args)
 else if (cmd === "keygen" && args[0]) cmdKeygen(args[0])
 else if (cmd === "registry-add" && args[0] && args[1]) cmdRegistryAdd(args[0], args[1])
