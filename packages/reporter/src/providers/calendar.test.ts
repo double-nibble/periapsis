@@ -25,3 +25,13 @@ test("toItem falls back to all-day date and a placeholder title", () => {
   assert.equal(item.title, "(busy)")
   assert.equal(item.meta?.at, "2026-10-17")
 })
+
+test("toItem namespaces the key by calendar and tags the calendar name", () => {
+  const item = toItem(
+    { id: "ev1", summary: "Sync", start: { dateTime: "2026-10-17T09:00:00Z" } },
+    "work",
+    { id: "team@group.calendar.google.com", summary: "Team" },
+  )
+  assert.equal(item.key, "team@group.calendar.google.com/ev1")
+  assert.equal(item.group, "Team")
+})
