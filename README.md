@@ -172,15 +172,66 @@ pnpm test
 
 Requires Node >= 22.13 and pnpm.
 
+### Testing a provider
+
+`periapsis-probe` runs a set of instances once and prints the per-source body each would
+seal and publish — no broker, no keys. Write a probe config:
+
+```json
+{ "account": "sub2", "instances": [ { "source": "github", "instance": "mygh", "params": { "token": "...", "login": "..." } } ] }
+```
+
+Run it, with debug logs to watch the collection:
+
+```
+PERIAPSIS_LOG=debug node packages/reporter/dist/probe.js probe.json
+```
+
+It prints `{ "<source>": { ...items or failed, note } }` — exactly what the reporter would
+publish to NATS.
+
+### Adding a provider
+
+**A new provider of an existing type** (e.g. Bitbucket or GitLab under `code`) needs no PR:
+
+- *direct* — write a module whose default export is a `Provider` (a `source` string and an
+  async `read` returning items), and point an instance at it with `module`.
+- *agent* — define the source inline in the instance `params` (`tools`, `instructions`,
+  `kind`), gathered through the machine's Claude connectors.
+
+Built-in providers ship in `packages/reporter/src/providers/` (registered in
+`providers/all.ts`); a frequently used external provider or inline agent source can be
+promoted to a built-in with a PR.
+
+**A new type** — a category with no existing item kind (say, a doorbell notification) —
+needs a PR to periapsis: it adds the kind to the taxonomy and its dashboard rendering.
+
+Either way, test with `periapsis-probe`, then add the instance to a reporter's
+`instances.json`.
+
 ## Providers
 
-Each reporter instance names a `provider`, an `instance` label, and provider-specific
-`params`. A reporter's `instances.json` is an array of these. Instances are grouped by the
-provider's abstract `source` on the dashboard.
+A reporter's `instances.json` is an array of instances. Each names a `source` — the abstract
+**type** (`code`, `calendar`, `messages`, …) that groups it on the dashboard. A **provider**
+implements a type: GitHub, GitLab and Bitbucket are providers of `code`; `gcal` and `ical`
+are providers of `calendar`. An instance is gathered one of two ways, set by `mode`:
 
-### github
+- **direct** (default) — a provider calls the service's API. Needs a token or credential in
+  `params` but no local Claude. `provider` names a built-in; `module` points at an external
+  provider module (its default export is a `Provider`), so a provider of an existing type
+  can be plugged in without changing periapsis.
+- **agent** — the reporter runs the machine's headless `claude` with that source's
+  connector tools. No token: it uses the connectors already authenticated in that Claude.
+  Needs the `claude` CLI and the relevant connectors on the reporter machine, and spends
+  tokens per poll. Direct is the way to save tokens.
 
-Open pull requests authored by, and awaiting review from, a GitHub login. Source: `github`.
+The sealed item shape and the `status.<account>` flow are identical either way.
+
+### Direct providers
+
+#### github
+
+Open pull requests authored by, and awaiting review from, a GitHub login. Type: `code`.
 
 ```json
 { "provider": "github", "instance": "mygh", "params": { "token": "<github token>", "login": "<github login>" } }
@@ -190,7 +241,7 @@ Open pull requests authored by, and awaiting review from, a GitHub login. Source
   repositories; used for the GraphQL `search` query.
 - `login` — the GitHub username whose open PRs (authored and review-requested) to report.
 
-### gcal
+#### gcal
 
 Today's Google Calendar events over the API. Source: `calendar`. Sees calendars
 subscribed from other accounts, which `ical` cannot.
@@ -206,7 +257,7 @@ subscribed from other accounts, which `ical` cannot.
 - `calendarId` — optional. A single calendar's ID; omit to read every calendar in the
   account's list, including subscribed ones.
 
-### ical
+#### ical
 
 Today's events from a secret iCal feed, no OAuth. Source: `calendar`. Covers only
 calendars you own (the secret iCal address is owner-only), and does not expand recurring
@@ -218,3 +269,45 @@ events.
 
 - `icsUrl` — a private ICS feed URL. In Google Calendar: *Settings → <your calendar> →
   Integrate calendar → Secret address in iCal format*. Any ICS feed URL also works.
+
+#### An external provider
+
+A provider of an existing type can live outside this repo. Point an instance at its module;
+set `source` to the type so it groups with the built-ins:
+
+```json
+{ "source": "code", "provider": "bitbucket", "mode": "direct", "module": "./providers/bitbucket.js",
+  "params": { "workspace": "...", "token": "..." } }
+```
+
+The module's default export must be a `Provider` (a `source` string and an async `read`).
+
+### Agent sources
+
+An agent instance sets `mode: "agent"` and a `source`. A built-in source carries its own
+connector tools and contract:
+
+```json
+{ "source": "calendar", "instance": "mycal", "mode": "agent" }
+```
+
+Built-in: `calendar` (Google Calendar connector).
+
+A source can also be defined inline, so a new one needs only config — no code change:
+
+```json
+{ "source": "email", "instance": "yahoo", "mode": "agent",
+  "params": {
+    "kind": "email",
+    "tools": ["mcp__claude_ai_Yahoo__search", "mcp__claude_ai_Yahoo__get_message"],
+    "instructions": "Report unread mail addressed to the account that needs a reply. key: message id. title: what to do. url: the message link. fingerprint: the message id."
+  } }
+```
+
+- `tools` — the connector tool names headless Claude may use.
+- `instructions` — what to report, in the item shape the dashboard renders.
+- `kind` — the item kind (`message`, `email`, `ticket`, …); defaults to the source name
+  when that is itself a kind.
+
+Changing a built-in source's contract or a direct provider is a change to this repo (a
+PR); a new inline agent source is config only.
