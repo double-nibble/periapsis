@@ -8,6 +8,12 @@ export type {
   InstanceConfig,
   AccountConfig,
 } from "./provider.js"
-export { collectSource, type SourceSnapshot } from "./collect.js"
+export { toItem } from "./collect.js"
 export { github } from "./providers/github.js"
-export { runOnce, startReporter, type ReporterConfig } from "./runtime.js"
+export {
+  runOnce,
+  startReporter,
+  collectAll,
+  type ReporterConfig,
+  type SourceResult,
+} from "./runtime.js"

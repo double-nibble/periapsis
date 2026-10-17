@@ -1,8 +1,11 @@
 // Each agent-backed source names the connector tools headless Claude may use and
 // the contract for what to report. Claude replies with one fenced JSON block.
+import type { Item } from "@periapsis/core"
+
 export interface AgentSource {
   tools: string[]
   instructions: string
+  kind: Item["kind"]
 }
 
 const OUTPUT = `Reply with ONE fenced \`\`\`json block and nothing after it:
@@ -11,6 +14,7 @@ Rules: items is the COMPLETE current set for this source; anything left out is r
 
 export const AGENT_SOURCES: Record<string, AgentSource> = {
   calendar: {
+    kind: "calendar",
     tools: [
       "mcp__claude_ai_Google_Calendar__list_events",
       "mcp__claude_ai_Google_Calendar__get_event",

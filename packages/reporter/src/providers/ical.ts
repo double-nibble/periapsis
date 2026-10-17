@@ -92,7 +92,7 @@ export function toItem(ev: RawEvent, instance: string): ProviderItem {
 export const ical: Provider = {
   source: "calendar",
   async read(config: InstanceConfig): Promise<ProviderResult> {
-    const icsUrl = String(config.params.icsUrl ?? "")
+    const icsUrl = String(config.params?.icsUrl ?? "")
     if (!icsUrl) throw new Error("ical instance needs icsUrl")
     const res = await fetch(icsUrl)
     if (!res.ok) throw new Error(`ical fetch ${res.status}: ${(await res.text()).slice(0, 200)}`)

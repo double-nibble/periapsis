@@ -1,81 +1,74 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { type Envelope, keygen, open } from "@periapsis/core"
-import { MemoryBroker } from "@periapsis/transport"
-import type { Provider } from "./provider.js"
-import { runOnce } from "./runtime.js"
+import type { InstanceConfig, Provider } from "./provider.js"
+import { type ReporterConfig, collectAll } from "./runtime.js"
 
-const hub = keygen()
-const sub = keygen()
-
-function fakeProvider(source: string): Provider {
-  return {
-    source,
-    async read(cfg) {
-      return {
-        items: [{ key: "1", kind: "ticket", title: `${source}:${cfg.instance}`, fingerprint: "f" }],
-      }
-    },
-  }
+const jira: Provider = {
+  source: "jira",
+  async read(cfg: InstanceConfig) {
+    const params = cfg.params ?? {}
+    if (params.fail === true) throw new Error("auth failed")
+    return {
+      items: [{ key: "T-1", kind: "ticket", title: `from ${cfg.instance}`, fingerprint: "f" }],
+    }
+  },
 }
 
-async function captured(broker: MemoryBroker): Promise<Envelope[]> {
-  const envs: Envelope[] = []
-  await broker.subscribe("status.>", (data) =>
-    envs.push(JSON.parse(new TextDecoder().decode(data))),
+const hub = { signPublic: "", boxPublic: "" }
+const providers = new Map<string, Provider>([["jira", jira]])
+
+function config(instances: InstanceConfig[], extra: Partial<ReporterConfig> = {}): ReporterConfig {
+  return { account: { account: "sub2", instances }, signPrivate: "", hub, ...extra }
+}
+
+test("direct instances of one source combine with distinct keys", async () => {
+  const r = await collectAll(
+    providers,
+    config([
+      { provider: "jira", instance: "team-a", params: { domain: "a" } },
+      { provider: "jira", instance: "team-b", params: { domain: "b" } },
+    ]),
   )
-  return envs
-}
-
-test("runs providers and publishes a sealed snapshot per source", async () => {
-  const broker = new MemoryBroker()
-  const envs = await captured(broker)
-  const providers = new Map<string, Provider>([
-    ["jira", { ...fakeProvider("jira"), source: "jira" }],
-  ])
-  await runOnce(broker, providers, {
-    account: {
-      account: "sub2",
-      instances: [
-        { provider: "jira", instance: "a", params: {} },
-        { provider: "jira", instance: "b", params: {} },
-      ],
-    },
-    signPrivate: sub.identity.signPrivate,
-    hub: hub.publicIdentity,
-  })
-  assert.equal(envs.length, 1) // one source → one envelope
-  const payload = open(
-    envs[0] as Envelope,
-    hub.identity.boxPrivate,
-    sub.publicIdentity.signPublic,
-  ) as { items: unknown[] }
-  assert.equal(payload.items.length, 2) // two instances merged
+  const jiraResult = r.get("jira")
+  assert.equal(jiraResult?.items.length, 2)
+  assert.equal(jiraResult?.failed, false)
 })
 
-test("an unknown provider is reported, others still publish", async () => {
-  const broker = new MemoryBroker()
-  const envs = await captured(broker)
-  const errors: unknown[] = []
-  const providers = new Map<string, Provider>([
-    ["jira", { ...fakeProvider("jira"), source: "jira" }],
-  ])
-  await runOnce(
-    broker,
+test("a failing instance does not sink the others", async () => {
+  const r = await collectAll(
     providers,
-    {
-      account: {
-        account: "sub2",
-        instances: [
-          { provider: "jira", instance: "a", params: {} },
-          { provider: "unknown", instance: "x", params: {} },
-        ],
-      },
-      signPrivate: sub.identity.signPrivate,
-      hub: hub.publicIdentity,
-    },
-    (e) => errors.push(e),
+    config([
+      { provider: "jira", instance: "ok", params: {} },
+      { provider: "jira", instance: "broken", params: { fail: true } },
+    ]),
   )
-  assert.equal(errors.length, 1)
-  assert.equal(envs.length, 1)
+  assert.equal(r.get("jira")?.items.length, 1)
+  assert.equal(r.get("jira")?.failed, false)
+  assert.match(r.get("jira")?.note ?? "", /broken: auth failed/)
+})
+
+test("all instances failing marks the source failed", async () => {
+  const r = await collectAll(
+    providers,
+    config([{ provider: "jira", instance: "a", params: { fail: true } }]),
+  )
+  assert.equal(r.get("jira")?.failed, true)
+})
+
+test("an agent instance is routed through the agent runner", async () => {
+  const r = await collectAll(
+    new Map(),
+    config([{ source: "calendar", instance: "mycal", mode: "agent" }], {
+      runAgent: () =>
+        Promise.resolve({
+          result:
+            '```json\n{"items":[{"key":"ev1","title":"Standup","fingerprint":"f1","at":"2026-10-17T09:00:00Z"}]}\n```',
+          isError: false,
+          costUsd: null,
+          turns: null,
+        }),
+    }),
+  )
+  assert.equal(r.get("calendar")?.items.length, 1)
+  assert.equal(r.get("calendar")?.items[0]?.kind, "calendar")
 })

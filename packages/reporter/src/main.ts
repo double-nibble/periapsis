@@ -17,6 +17,7 @@ interface FileConfig {
   signPrivate: string
   instances: ReporterConfig["account"]["instances"]
   everyMs?: number
+  model?: string
   brokerUser?: string
   brokerPass?: string
 }
@@ -49,6 +50,7 @@ export async function main(configPath: string): Promise<void> {
       signPrivate: cfg.signPrivate,
       hub,
       everyMs: cfg.everyMs,
+      model: cfg.model,
     },
     (err) => log.error("reporter error", { err: (err as Error).message }),
   )

@@ -81,8 +81,9 @@ function toItem(pr: PrNode, instance: string, mine: boolean): ProviderItem {
 export const github: Provider = {
   source: "github",
   async read(config: InstanceConfig): Promise<ProviderResult> {
-    const token = String(config.params.token ?? "")
-    const login = String(config.params.login ?? "")
+    const params = config.params ?? {}
+    const token = String(params.token ?? "")
+    const login = String(params.login ?? "")
     if (!token || !login) throw new Error("github instance needs token and login")
     const [mine, review] = await Promise.all([
       graphql(token, QUERY, { q: `is:pr is:open archived:false author:${login}`, first: 50 }),
