@@ -94,6 +94,22 @@ The month's events from a secret iCal feed, no OAuth, with recurring events expa
 - `icsUrl` — a private ICS feed URL. In Google Calendar: *Settings → <your calendar> →
   Integrate calendar → Secret address in iCal format*. Any ICS feed URL also works.
 
+### jira
+
+Jira Cloud issues assigned to you that are not done, one item per issue: in progress or due
+by today first, backlog last. Source: `tickets`. One instance per Jira site.
+
+```json
+{ "provider": "jira", "instance": "acme-jira", "every": "5m",
+  "params": { "site": "acme.atlassian.net", "email": "you@example.com", "tokenFile": "~/.periapsis/jira-token" } }
+```
+
+- `site`: the Jira Cloud site.
+- `email` and `token` (or `tokenFile` / `tokenEnv`): an Atlassian account and an API token
+  from id.atlassian.com, with read access to the issues.
+- `jql`: optional; replaces the default query (`assignee = currentUser() AND
+  statusCategory != Done`).
+
 ### An external provider
 
 A provider of an existing type can live outside this repo. Point an instance at its module;
