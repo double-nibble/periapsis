@@ -8,6 +8,8 @@ dashboard on localhost. From the dashboard you can dismiss, snooze or complete i
 the hub write a daily plan with Claude, and send a signed prompt back to a machine for its
 Claude to act on.
 
+![Opening an item on the dashboard and sending a prompt to that account's machine](docs/images/demo.webp)
+
 - [Components](#components)
 - [How data flows](#how-data-flows)
 - [Setup](#setup)
@@ -326,6 +328,8 @@ providers and agent sources, every instance setting and examples are in
 
 ## The dashboard
 
+![The dashboard with two accounts](docs/images/dashboard.png)
+
 - Chips across the top filter everything to one account.
 - The calendar spans the page, with today, week and month views. The week and today views
   scroll, zoom (− = +) and resize by dragging their bottom edge.
@@ -339,6 +343,8 @@ providers and agent sources, every instance setting and examples are in
   dimmed.
 - Clicking any item opens it with its full detail. From there you can dismiss, snooze or
   respond to it.
+
+![An opened item with a prompt for that account's Claude](docs/images/item.png)
 
 ## Extending
 
