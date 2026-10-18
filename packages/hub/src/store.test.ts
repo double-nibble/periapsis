@@ -86,3 +86,23 @@ test("reconcile records a source heartbeat even with no items", () => {
   assert.equal(reps[0]?.source, "github")
   assert.equal(reps[0]?.lastSeen, 500)
 })
+
+test("a hidden item with new activity becomes active again", () => {
+  const s = openStore(":memory:")
+  s.reconcile("sub1", "github", [item("sub1", "github", "a")], 1)
+  s.act("sub1", "github", "a", "dismiss", 2)
+  s.reconcile("sub1", "github", [item("sub1", "github", "a")], 3)
+  assert.equal(one(s.list()).status, "dismissed")
+  s.reconcile("sub1", "github", [item("sub1", "github", "a", { fingerprint: "g" })], 4)
+  assert.equal(one(s.list()).status, "active")
+  s.close()
+})
+
+test("an item's body is stored and refreshed", () => {
+  const s = openStore(":memory:")
+  s.reconcile("sub1", "tasks", [item("sub1", "tasks", "t", { body: "first" })], 1)
+  s.reconcile("sub1", "tasks", [item("sub1", "tasks", "t", { body: "second" })], 2)
+  assert.equal(s.get("sub1", "tasks", "t")?.body, "second")
+  assert.equal(s.get("sub1", "tasks", "nope"), null)
+  s.close()
+})

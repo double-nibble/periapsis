@@ -168,11 +168,12 @@ function cmdHubConfig(args: string[]): void {
     process.exit(1)
   }
   const hub = JSON.parse(readFileSync(hubKey, "utf8")) as {
+    signPrivate?: string
     boxPrivate?: string
     signPublic?: string
     boxPublic?: string
   }
-  if (!hub.boxPrivate || !hub.signPublic || !hub.boxPublic) {
+  if (!hub.signPrivate || !hub.boxPrivate || !hub.signPublic || !hub.boxPublic) {
     process.stderr.write(`${hubKey} has no identity keys; is it a hub key file?\n`)
     process.exit(1)
   }
@@ -189,6 +190,7 @@ function cmdHubConfig(args: string[]): void {
     registryUrl: registry,
     rootSignPublic,
     boxPrivate: hub.boxPrivate,
+    signPrivate: hub.signPrivate,
     natsSeed: user.seed,
     port: f.port ? Number(f.port) : 4747,
     dataDir: f["data-dir"] ?? `${process.env.HOME}/.periapsis-hub`,

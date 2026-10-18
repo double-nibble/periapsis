@@ -7,6 +7,7 @@ export interface ModelItem {
   kind: string
   title: string
   detail: string | null
+  body: string | null
   url: string | null
   group: string | null
   priority: number
@@ -43,6 +44,7 @@ function toItem(row: Row): ModelItem {
     kind: row.kind,
     title: row.title,
     detail: row.detail,
+    body: row.body ?? null,
     url: row.url,
     group: row.grp,
     priority: row.priority,
@@ -54,7 +56,10 @@ const byPriority = (a: ModelItem, b: ModelItem) =>
   a.priority - b.priority || a.key.localeCompare(b.key)
 
 export function buildModel(rows: Row[], now: number, reporters: Reporter[] = []): Model {
-  const active = rows.filter((r) => r.status === "active").map(toItem)
+  // A snoozed item comes back when its snooze ends.
+  const shown = (r: Row) =>
+    r.status === "active" || (r.status === "snoozed" && (r.hidden_until ?? 0) <= now)
+  const active = rows.filter(shown).map(toItem)
 
   const accounts = new Map<string, ModelItem[]>()
   for (const r of reporters) if (!accounts.has(r.account)) accounts.set(r.account, [])

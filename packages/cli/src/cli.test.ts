@@ -72,6 +72,7 @@ test("hub-config assembles a config from the hub key and root public key", () =>
   assert.equal(cfg.brokerUrl, "wss://api.example.com")
   assert.equal(cfg.rootSignPublic, rootPub.root.signPublic)
   assert.equal(cfg.boxPrivate, hub.boxPrivate)
+  assert.equal(cfg.signPrivate, hub.signPrivate)
   assert.equal(cfg.port, 4747)
 })
 

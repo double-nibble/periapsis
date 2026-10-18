@@ -13,6 +13,7 @@ export interface Row {
   kind: string
   title: string
   detail: string | null
+  body: string | null
   url: string | null
   grp: string | null
   priority: number
@@ -40,6 +41,7 @@ export interface Store {
     now: number,
     until?: number,
   ): Row | null
+  get(account: string, source: string, key: string): Row | null
   list(): Row[]
   close(): void
 }
@@ -72,14 +74,16 @@ export function openStore(path: string): Store {
       PRIMARY KEY (account, source)
     );
   `)
+  const columns = db.prepare("PRAGMA table_info(items)").all() as { name: string }[]
+  if (!columns.some((c) => c.name === "body")) db.exec("ALTER TABLE items ADD COLUMN body TEXT")
 
   const get = db.prepare("SELECT * FROM items WHERE account=? AND source=? AND key=?")
   const insert = db.prepare(`
-    INSERT INTO items (account, source, key, kind, title, detail, url, grp, priority, fingerprint, meta)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO items (account, source, key, kind, title, detail, body, url, grp, priority, fingerprint, meta)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const refresh = db.prepare(`
-    UPDATE items SET kind=?, title=?, detail=?, url=?, grp=?, priority=?, fingerprint=?, meta=?
+    UPDATE items SET kind=?, title=?, detail=?, body=?, url=?, grp=?, priority=?, fingerprint=?, meta=?
     WHERE account=? AND source=? AND key=?
   `)
   const setStatus = db.prepare(
@@ -117,6 +121,7 @@ export function openStore(path: string): Store {
             item.kind,
             item.title,
             item.detail,
+            item.body ?? null,
             item.url,
             item.group,
             item.priority,
@@ -129,6 +134,7 @@ export function openStore(path: string): Store {
           item.kind,
           item.title,
           item.detail,
+          item.body ?? null,
           item.url,
           item.group,
           item.priority,
@@ -138,9 +144,13 @@ export function openStore(path: string): Store {
           source,
           key,
         )
-        if (row.status === "resolved") {
+        // A resolved item that reappears, or a hidden one with new activity,
+        // needs attention again.
+        if (
+          row.status === "resolved" ||
+          (row.status !== "active" && row.fingerprint !== item.fingerprint)
+        )
           setStatus.run("active", null, null, account, source, key)
-        }
       }
       for (const row of bySource.all(account, source) as unknown as Row[]) {
         if (!seen.has(row.key)) setStatus.run("resolved", null, now, account, source, row.key)
@@ -177,6 +187,8 @@ export function openStore(path: string): Store {
   return {
     reconcile,
     act,
+    get: (account, source, key) =>
+      (get.get(account, source, key) as unknown as Row | undefined) ?? null,
     list: () => all.all() as unknown as Row[],
     reporters: () => allSources.all() as unknown as Reporter[],
     close: () => db.close(),

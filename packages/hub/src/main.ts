@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from "node:fs"
 import { RegistryClient, createLogger } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
+import { commander } from "./commander.js"
 import { startServer } from "./server.js"
 import { openStore } from "./store.js"
 import { startSubscriber } from "./subscriber.js"
@@ -12,6 +13,8 @@ interface HubFileConfig {
   registryUrl: string
   rootSignPublic: string
   boxPrivate: string
+  // Signs commands to reporters; without it the dashboard cannot respond.
+  signPrivate?: string
   port?: number
   dataDir?: string
   brokerUser?: string
@@ -36,7 +39,10 @@ export async function main(configPath: string): Promise<void> {
   })
   log.info("broker connected", { url: cfg.brokerUrl })
   const port = cfg.port ?? 4747
-  const server = startServer(store, port)
+  const server = startServer(store, port, Date.now, {
+    respond: cfg.signPrivate ? commander(broker, registry, cfg.signPrivate) : undefined,
+    respondUnavailable: "hub-config.json has no signPrivate; copy it from the hub's key file",
+  })
 
   await startSubscriber({
     broker,

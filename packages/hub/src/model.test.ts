@@ -11,6 +11,7 @@ function row(account: string, over: Partial<Row> = {}): Row {
     kind: "pr",
     title: "t",
     detail: null,
+    body: null,
     url: null,
     grp: null,
     priority: 2,
@@ -82,4 +83,10 @@ test("items sort by priority", () => {
     1,
   )
   assert.equal(m.accounts[0]?.items[0]?.key, "high")
+})
+
+test("a snoozed item returns when its snooze ends", () => {
+  const rows = [row("sub1", { status: "snoozed", hidden_until: 100 })]
+  assert.equal(buildModel(rows, 99).accounts.length, 0)
+  assert.equal(buildModel(rows, 100).accounts[0]?.items.length, 1)
 })
