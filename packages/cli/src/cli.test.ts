@@ -75,16 +75,96 @@ test("hub-config assembles a config from the hub key and root public key", () =>
   assert.equal(cfg.port, 4747)
 })
 
-test("broker-accounts generates NATS auth config and creds including the hub", () => {
+function enroll(dir: string, token: string): string {
+  return execFileSync(process.execPath, [cli, "enroll", token.trim(), "--root-key", "root.key"], {
+    cwd: dir,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  })
+}
+
+function hubToken(dir: string): string {
+  return run(
+    dir,
+    "hub-config",
+    "--hub-key",
+    "hub.key",
+    "--root-pub",
+    "root.pub.json",
+    "--broker",
+    "wss://api.example.com",
+    "--registry",
+    "https://status.example.com/registry.json",
+  )
+}
+
+function reporterToken(dir: string, account: string): string {
+  return run(
+    dir,
+    "reporter-enroll",
+    "--account",
+    account,
+    "--root-pub",
+    "root.pub.json",
+    "--broker",
+    "wss://api.example.com",
+    "--registry",
+    "https://status.example.com/registry.json",
+    "--out",
+    `${account}-config.json`,
+  )
+}
+
+test("enrolling the hub and a reporter yields a signed registry and nkey auth", () => {
   const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
-  run(dir, "broker-accounts", "--accounts", "sub1,sub2")
+  run(dir, "keygen", "root")
+  run(dir, "keygen", "hub")
+  enroll(dir, hubToken(dir))
+  enroll(dir, reporterToken(dir, "sub1"))
+  const signed = JSON.parse(readFileSync(join(dir, "signed-registry.json"), "utf8"))
+  const rootPub = JSON.parse(readFileSync(join(dir, "root.pub.json"), "utf8"))
+  assert.ok(verifyRegistry(signed, rootPub.root.signPublic))
+  assert.deepEqual(Object.keys(signed.registry.identities).sort(), ["hub", "sub1"])
+  const sub1Seed = JSON.parse(readFileSync(join(dir, "sub1-config.json"), "utf8")).natsSeed
+  assert.ok(sub1Seed.startsWith("SU"))
+  run(dir, "broker-accounts", "--registry-file", "signed-registry.json")
   const conf = readFileSync(join(dir, "accounts.conf"), "utf8")
-  assert.ok(conf.includes('user: "hub"'))
+  assert.ok(conf.includes(`nkey: "${signed.registry.identities.hub.nkey}"`))
+  assert.ok(conf.includes(`nkey: "${signed.registry.identities.sub1.nkey}"`))
   assert.ok(conf.includes('publish: ["status.sub1"]'))
-  assert.ok(conf.includes('subscribe: ["commands.sub1", "_INBOX.>"]'))
-  assert.ok(conf.includes('subscribe: ["status.>", "_INBOX.>"]'))
-  const creds = JSON.parse(readFileSync(join(dir, "broker-creds.json"), "utf8"))
-  assert.ok(creds.hub && creds.sub1 && creds.sub2)
+  assert.ok(!conf.includes("password"))
+})
+
+test("re-enrolling an account replaces its keys", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "root")
+  run(dir, "keygen", "hub")
+  enroll(dir, hubToken(dir))
+  enroll(dir, reporterToken(dir, "sub1"))
+  const before = JSON.parse(readFileSync(join(dir, "signed-registry.json"), "utf8"))
+  execFileSync("rm", [join(dir, "sub1-config.json")])
+  enroll(dir, reporterToken(dir, "sub1"))
+  const after = JSON.parse(readFileSync(join(dir, "signed-registry.json"), "utf8"))
+  assert.notEqual(after.registry.identities.sub1.nkey, before.registry.identities.sub1.nkey)
+  assert.equal(after.registry.identities.hub.nkey, before.registry.identities.hub.nkey)
+})
+
+test("enroll refuses a registry that does not verify under the root key", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "root")
+  run(dir, "keygen", "hub")
+  enroll(dir, hubToken(dir))
+  const signed = JSON.parse(readFileSync(join(dir, "signed-registry.json"), "utf8"))
+  signed.registry.identities.intruder = signed.registry.identities.hub
+  writeFileSync(join(dir, "signed-registry.json"), JSON.stringify(signed))
+  assert.throws(() => enroll(dir, reporterToken(dir, "sub1")))
+})
+
+test("broker-accounts refuses a registry without the hub", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "root")
+  enroll(dir, reporterToken(dir, "sub1"))
+  assert.throws(() => run(dir, "broker-accounts", "--registry-file", "signed-registry.json"))
 })
 
 test("reporter-config assembles a reporter config from the account key", () => {
@@ -120,15 +200,4 @@ test("reporter-config assembles a reporter config from the account key", () => {
   assert.equal(cfg.instances.length, 1)
   assert.equal(cfg.everyMs, 60000)
   assert.equal(cfg.brokerPass, undefined)
-})
-
-test("broker-accounts --keep preserves existing passwords and mints only new ones", () => {
-  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
-  run(dir, "broker-accounts", "--accounts", "sub1")
-  const first = JSON.parse(readFileSync(join(dir, "broker-creds.json"), "utf8"))
-  run(dir, "broker-accounts", "--accounts", "sub1,sub2", "--keep", "broker-creds.json")
-  const second = JSON.parse(readFileSync(join(dir, "broker-creds.json"), "utf8"))
-  assert.equal(second.hub, first.hub)
-  assert.equal(second.sub1, first.sub1)
-  assert.ok(second.sub2 && second.sub2 !== first.sub1)
 })

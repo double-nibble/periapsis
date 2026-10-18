@@ -29,5 +29,4 @@ instances*.json
 dist-bundle/
 # Local enrollment and installer artifacts
 config.json
-accounts.json
 bootstrap.json
