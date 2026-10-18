@@ -72,9 +72,9 @@ subscribed from other accounts, which `ical` cannot.
 
 ### ical
 
-Today's events from a secret iCal feed, no OAuth. Source: `calendar`. Covers only
-calendars you own (the secret iCal address is owner-only), and does not expand recurring
-events.
+The month's events from a secret iCal feed, no OAuth, with recurring events expanded
+(daily, weekly, monthly and yearly rules, excluded dates and moved occurrences). Source:
+`calendar`. Covers only calendars you own (the secret iCal address is owner-only).
 
 ```json
 { "provider": "ical", "instance": "mycal", "params": { "icsUrl": "https://calendar.google.com/calendar/ical/.../basic.ics" } }

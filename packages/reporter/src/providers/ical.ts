@@ -1,4 +1,5 @@
 import type { InstanceConfig, Provider, ProviderItem, ProviderResult } from "../provider.js"
+import { occurrences, parseRule } from "./rrule.js"
 import { monthWindow } from "./window.js"
 
 export interface RawEvent {
@@ -9,6 +10,13 @@ export interface RawEvent {
   end?: Date
   allDay: boolean
   stamp: string
+  // Recurrence: the rule, excluded starts, and for an overridden occurrence
+  // the start it replaces.
+  rrule?: string
+  // Whether the start is a UTC time; otherwise it is local (floating or TZID).
+  utc?: boolean
+  exdates?: number[]
+  recurrenceId?: number
 }
 
 // ICS folds long lines with a CRLF followed by a space or tab; rejoin them.
@@ -50,6 +58,10 @@ export function parseEvents(ics: string): RawEvent[] {
   let end: Date | undefined
   let allDay = false
   let stamp = ""
+  let rrule: string | undefined
+  let utc = false
+  let exdates: number[] = []
+  let recurrenceId: number | undefined
   let open = false
   for (const line of unfold(ics)) {
     if (line === "BEGIN:VEVENT") {
@@ -61,10 +73,27 @@ export function parseEvents(ics: string): RawEvent[] {
       end = undefined
       allDay = false
       stamp = ""
+      rrule = undefined
+      utc = false
+      exdates = []
+      recurrenceId = undefined
       continue
     }
     if (line === "END:VEVENT") {
-      if (open && start && uid) events.push({ uid, summary, url, start, end, allDay, stamp })
+      if (open && start && uid)
+        events.push({
+          uid,
+          summary,
+          url,
+          start,
+          end,
+          allDay,
+          stamp,
+          rrule,
+          utc,
+          exdates,
+          recurrenceId,
+        })
       open = false
       continue
     }
@@ -80,10 +109,50 @@ export function parseEvents(ics: string): RawEvent[] {
     else if (name === "DTSTART") {
       start = parseDate(left, value)
       allDay = isDateOnly(left, value)
+      utc = !allDay && value.endsWith("Z")
     } else if (name === "DTEND") end = parseDate(left, value)
     else if ((name === "LAST-MODIFIED" || name === "DTSTAMP") && !stamp) stamp = value
+    else if (name === "RRULE") rrule = value
+    else if (name === "EXDATE")
+      exdates.push(...value.split(",").map((v) => parseDate(left, v).getTime()))
+    else if (name === "RECURRENCE-ID") recurrenceId = parseDate(left, value).getTime()
   }
   return events
+}
+
+// The events that start in [from, to): single events as they are, and each
+// occurrence of a recurring event, keyed by its start, unless it is excluded
+// or replaced by an overriding event.
+export function expandEvents(events: RawEvent[], from: Date, to: Date): RawEvent[] {
+  const replaced = new Set(
+    events.filter((e) => e.recurrenceId !== undefined).map((e) => `${e.uid}@${e.recurrenceId}`),
+  )
+  const out: RawEvent[] = []
+  for (const ev of events) {
+    const rule =
+      ev.rrule && ev.recurrenceId === undefined
+        ? parseRule(ev.rrule, (v) => parseDate("", v))
+        : null
+    if (!rule) {
+      if (ev.start >= from && ev.start < to)
+        out.push(
+          ev.recurrenceId === undefined ? ev : { ...ev, uid: `${ev.uid}/${ev.recurrenceId}` },
+        )
+      continue
+    }
+    const length = ev.end ? ev.end.getTime() - ev.start.getTime() : undefined
+    for (const start of occurrences(rule, ev.start, ev.utc === true, from, to)) {
+      const t = start.getTime()
+      if (ev.exdates?.includes(t) || replaced.has(`${ev.uid}@${t}`)) continue
+      out.push({
+        ...ev,
+        uid: `${ev.uid}/${t}`,
+        start,
+        end: length !== undefined ? new Date(t + length) : undefined,
+      })
+    }
+  }
+  return out
 }
 
 // A local calendar date as YYYY-MM-DD.
@@ -109,8 +178,8 @@ export function toItem(ev: RawEvent, instance: string): ProviderItem {
   }
 }
 
-// Params: { icsUrl }. Reads today's events from a secret iCal feed. Recurring
-// events are not expanded; the gcal provider covers recurrence.
+// Params: { icsUrl }. Reads the month's events from an iCal feed, with
+// recurring events expanded into their occurrences.
 export const ical: Provider = {
   source: "calendar",
   async read(config: InstanceConfig): Promise<ProviderResult> {
@@ -119,9 +188,9 @@ export const ical: Provider = {
     const res = await fetch(icsUrl)
     if (!res.ok) throw new Error(`ical fetch ${res.status}: ${(await res.text()).slice(0, 200)}`)
     const { start, end } = monthWindow(new Date())
-    const items = parseEvents(await res.text())
-      .filter((ev) => ev.start >= start && ev.start < end)
-      .map((ev) => toItem(ev, config.instance))
+    const items = expandEvents(parseEvents(await res.text()), start, end).map((ev) =>
+      toItem(ev, config.instance),
+    )
     return { items }
   },
 }

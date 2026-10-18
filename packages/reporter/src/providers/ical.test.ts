@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { parseEvents, toItem } from "./ical.js"
+import { expandEvents, parseEvents, toItem } from "./ical.js"
 
 const ICS = [
   "BEGIN:VCALENDAR",
@@ -54,4 +54,33 @@ test("toItem gives an all-day event local dates, defaulting to one day", () => {
   assert.equal(item.meta?.at, "2026-10-17")
   assert.equal(item.meta?.end, "2026-10-18")
   assert.equal(item.meta?.allDay, "true")
+})
+
+const RECURRING = [
+  "BEGIN:VCALENDAR",
+  "BEGIN:VEVENT",
+  "UID:standup",
+  "SUMMARY:Standup",
+  "DTSTART:20261005T090000",
+  "DTEND:20261005T091500",
+  "RRULE:FREQ=WEEKLY;BYDAY=MO,WE",
+  "EXDATE:20261007T090000",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:standup",
+  "SUMMARY:Standup (moved)",
+  "RECURRENCE-ID:20261012T090000",
+  "DTSTART:20261012T100000",
+  "DTEND:20261012T101500",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n")
+
+test("expandEvents expands a rule, skips EXDATEs and applies overrides", () => {
+  const evs = expandEvents(parseEvents(RECURRING), new Date(2026, 9, 5), new Date(2026, 9, 15))
+  const seen = evs.map((e) => `${e.start.getDate()} ${e.start.getHours()}:00 ${e.summary}`).sort()
+  assert.deepEqual(seen, ["12 10:00 Standup (moved)", "14 9:00 Standup", "5 9:00 Standup"])
+  const five = evs.find((e) => e.start.getDate() === 5)
+  assert.equal((five?.end?.getTime() ?? 0) - (five?.start.getTime() ?? 0), 15 * 60_000)
+  assert.equal(new Set(evs.map((e) => e.uid)).size, 3)
 })
