@@ -2,6 +2,8 @@ import { mkdirSync, readFileSync } from "node:fs"
 import { RegistryClient, createLogger } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 import { commander } from "./commander.js"
+import { buildModel } from "./model.js"
+import { type Briefing, type PlanConfig, Planner } from "./planner.js"
 import { startServer } from "./server.js"
 import { openStore } from "./store.js"
 import { startSubscriber } from "./subscriber.js"
@@ -20,6 +22,8 @@ interface HubFileConfig {
   brokerUser?: string
   brokerPass?: string
   natsSeed?: string
+  // The daily plan, written by this machine's claude; false turns it off.
+  plan?: PlanConfig | false
 }
 
 export async function main(configPath: string): Promise<void> {
@@ -39,7 +43,25 @@ export async function main(configPath: string): Promise<void> {
   })
   log.info("broker connected", { url: cfg.brokerUrl })
   const port = cfg.port ?? 4747
+  const latest = () => store.getState<Briefing>("briefing")
+  const planner =
+    cfg.plan === false
+      ? null
+      : new Planner(
+          () => buildModel(store.list(), Date.now(), store.reporters()),
+          (b) => {
+            store.setState("briefing", b)
+            server.push()
+          },
+          latest,
+          cfg.plan ?? {},
+        )
   const server = startServer(store, port, Date.now, {
+    briefing: () => {
+      const b = latest()
+      return b ? { ...b, running: planner?.running ?? false } : null
+    },
+    plan: planner ? () => void planner.run().then(() => server.push()) : undefined,
     respond: cfg.signPrivate ? commander(broker, registry, cfg.signPrivate) : undefined,
     respondUnavailable: "hub-config.json has no signPrivate; copy it from the hub's key file",
   })
@@ -51,6 +73,8 @@ export async function main(configPath: string): Promise<void> {
     hubBoxPrivate: cfg.boxPrivate,
     onError: (err) => log.error("ingest error", { err: (err as Error).message }),
   })
+
+  planner?.start()
 
   // Push model updates to connected dashboards on a short interval.
   setInterval(() => server.push(), 2_000).unref?.()

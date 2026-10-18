@@ -192,6 +192,15 @@ everything that needs you, in Now, Soon and When you can bands, with Open, Done,
 and Snooze on each row. The right column lists pull requests: review requests first, then
 your own by repository, each with its size, age, reviewers, checks and open threads.
 
+### Today's plan
+
+The hub writes a daily plan at the top of the left column: a headline and three to six
+steps across every account, naming the PRs, people and meetings involved. It runs the hub
+machine's own `claude`, with no tools, over what the dashboard already shows, every three
+hours and whenever you press ↻. Set `"plan": { "everyHours": 2, "model": "sonnet" }` in
+`hub-config.json` to change how often and with which model, or `"plan": false` to turn it
+off.
+
 ### Responding from the dashboard
 
 Click an item to open it. From there you can dismiss it, snooze it, or respond: type what
