@@ -3,6 +3,7 @@ import { test } from "node:test"
 import {
   TYPE_ORDER,
   accountColors,
+  ago,
   allDayLanes,
   clampHeight,
   eventSpan,
@@ -262,4 +263,12 @@ test("scrollToNow centers the current time and stays within the day", () => {
   assert.equal(scrollToNow(new Date(2026, 9, 18, 11, 0), 22, 200), 142)
   assert.equal(scrollToNow(new Date(2026, 9, 18, 1, 0), 22, 200), 0)
   assert.equal(scrollToNow(new Date(2026, 9, 18, 23, 30), 22, 200), 328)
+})
+
+test("ago is brief: minutes, hours, then days", () => {
+  const now = Date.parse("2026-10-18T12:00:00Z")
+  assert.equal(ago("2026-10-18T11:30:00Z", now), "30m")
+  assert.equal(ago("2026-10-18T07:00:00Z", now), "5h")
+  assert.equal(ago("2026-10-15T12:00:00Z", now), "3d")
+  assert.equal(ago("not a date", now), "")
 })

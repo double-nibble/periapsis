@@ -278,3 +278,12 @@ export function scrollToNow(now, hourPx, viewHeight) {
   const at = ((now.getHours() * 60 + now.getMinutes()) / 60) * hourPx
   return Math.round(Math.min(24 * hourPx - viewHeight, Math.max(0, at - viewHeight / 2)))
 }
+
+// How long ago an ISO time was, briefly: "5m", "3h", "2d".
+export function ago(iso, now = Date.now()) {
+  const ms = Math.max(0, now - Date.parse(iso))
+  if (Number.isNaN(ms)) return ""
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`
+  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`
+  return `${Math.floor(ms / 86_400_000)}d`
+}
