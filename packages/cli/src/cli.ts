@@ -58,12 +58,6 @@ function usage(): never {
       "                            Write accounts.conf: NATS authorization for every",
       "                            enrolled nkey in the registry.",
       "",
-      "  reporter-config --account A --account-key <A.key>",
-      "             --root-pub <root.pub.json> --broker <wss-url> --registry <url>",
-      "             --instances <file> [--every-ms N] [--out F]",
-      "                            Assemble a reporter config. NATS password from",
-      "                            PERIAPSIS_BROKER_PASS.",
-      "",
     ].join("\n"),
   )
   process.exit(1)
@@ -267,59 +261,6 @@ function cmdReporterEnroll(args: string[]): void {
   )
 }
 
-function cmdReporterConfig(args: string[]): void {
-  const f = parseFlags(args)
-  const account = f.account
-  const accountKey = f["account-key"]
-  const rootPub = f["root-pub"]
-  const broker = f.broker
-  const registry = f.registry
-  const instancesFile = f.instances
-  if (!account || !accountKey || !rootPub || !broker || !registry || !instancesFile) usage()
-  if (!isId(account)) {
-    process.stderr.write(`invalid account id: ${account}\n`)
-    process.exit(1)
-  }
-  const out = f.out ?? "reporter-config.json"
-  if (existsSync(out)) {
-    process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
-    process.exit(1)
-  }
-  const key = JSON.parse(readFileSync(accountKey, "utf8")) as { signPrivate?: string }
-  if (!key.signPrivate) {
-    process.stderr.write(`${accountKey} has no signPrivate; is it an account key file?\n`)
-    process.exit(1)
-  }
-  const rootSignPublic = rootSignPublicFrom(
-    JSON.parse(readFileSync(rootPub, "utf8")) as Record<string, unknown>,
-  )
-  if (!rootSignPublic) {
-    process.stderr.write(`${rootPub} has no signPublic\n`)
-    process.exit(1)
-  }
-  const instances = JSON.parse(readFileSync(instancesFile, "utf8")) as unknown
-  if (!Array.isArray(instances)) {
-    process.stderr.write(`${instancesFile} must be a JSON array of instances\n`)
-    process.exit(1)
-  }
-  const config: Record<string, unknown> = {
-    account,
-    brokerUrl: broker,
-    registryUrl: registry,
-    rootSignPublic,
-    signPrivate: key.signPrivate,
-    instances,
-    everyMs: f["every-ms"] ? Number(f["every-ms"]) : 60_000,
-  }
-  const pass = process.env.PERIAPSIS_BROKER_PASS
-  if (pass) {
-    config.brokerUser = account
-    config.brokerPass = pass
-  }
-  writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
-  process.stderr.write(`wrote ${out} (contains the account signing key — keep it local)\n`)
-}
-
 function cmdEnroll(args: string[]): void {
   const token = args[0] && !args[0].startsWith("--") ? args[0] : undefined
   const f = parseFlags(token ? args.slice(1) : args)
@@ -390,5 +331,4 @@ else if (cmd === "sign-registry" && args[0] && args[1]) cmdSignRegistry(args[0],
 else if (cmd === "broker-check" && args[0]) await cmdBrokerCheck(args[0])
 else if (cmd === "hub-config") cmdHubConfig(args)
 else if (cmd === "broker-accounts") cmdBrokerAccounts(args)
-else if (cmd === "reporter-config") cmdReporterConfig(args)
 else usage()
