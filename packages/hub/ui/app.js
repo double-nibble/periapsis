@@ -1,4 +1,6 @@
 import {
+  accountColors,
+  eventSpan,
   eventsOn,
   filterByType,
   itemsFor,
@@ -18,6 +20,7 @@ let model = { accounts: [], schedule: [] }
 let who = null
 let type = "All"
 let calRange = "week"
+let colors = {}
 
 const NAV_KEY = "periapsis.nav.collapsed"
 
@@ -40,7 +43,12 @@ function rosterButton(label, items) {
   const u = urgent(items)
   const name = document.createElement("span")
   name.className = "name"
-  name.textContent = label
+  if (label !== "All") {
+    const swatch = document.createElement("span")
+    swatch.className = `swatch acct-c${colors[label] ?? 0}`
+    name.append(swatch)
+  }
+  name.append(label)
   const count = document.createElement("span")
   count.className = u > 0 ? "count urgent mono" : "count mono"
   count.textContent = u > 0 ? `${items.length} · ${u}!` : String(items.length)
@@ -104,7 +112,7 @@ function itemRow(item, fleet) {
   tags.className = "tags"
   if (fleet) {
     const acct = document.createElement("span")
-    acct.className = "who-tag mono"
+    acct.className = `who-tag mono acct-c${colors[item.account] ?? 0}`
     acct.textContent = item.account
     tags.append(acct)
   }
@@ -118,26 +126,39 @@ function itemRow(item, fleet) {
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-function hhmm(at) {
-  const d = new Date(at)
+function hhmm(d) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
 }
 
-function eventChip(item) {
-  const chip = document.createElement(item.url ? "a" : "div")
-  chip.className = "cal-ev"
+function colorClass(item) {
+  return `acct-c${colors[item.account] ?? 0}`
+}
+
+function linkOrBlock(item, className) {
+  const el = document.createElement(item.url ? "a" : "div")
+  el.className = className
   if (item.url) {
-    chip.href = item.url
-    chip.target = "_blank"
-    chip.rel = "noreferrer"
+    el.href = item.url
+    el.target = "_blank"
+    el.rel = "noreferrer"
   }
-  const t = document.createElement("span")
-  t.className = "cal-time mono"
-  t.textContent = hhmm(item.meta.at)
+  return el
+}
+
+function eventChip(item) {
+  const chip = linkOrBlock(item, `cal-ev ${colorClass(item)}`)
+  const span = eventSpan(item)
+  if (span && !span.allDay) {
+    const t = document.createElement("span")
+    t.className = "cal-time mono"
+    t.textContent = hhmm(span.start)
+    chip.append(t)
+  }
   const ti = document.createElement("span")
   ti.className = "cal-title"
   ti.textContent = item.title
-  chip.append(t, ti)
+  chip.append(ti)
+  chip.title = `${item.title} · ${item.account}`
   return chip
 }
 
@@ -275,6 +296,7 @@ function renderDetail() {
 
 function render() {
   if (!who && model.accounts.length) who = "All"
+  colors = accountColors(model.accounts.map((a) => a.account))
   renderTabs()
   renderRoster()
   renderDetail()
