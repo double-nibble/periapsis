@@ -171,25 +171,24 @@ export DOMAIN="<your domain>"
 curl -fsSL "https://status.${DOMAIN}/install.sh" | bash -s -- "https://status.${DOMAIN}" <worker_name>
 ```
 
-The installer downloads the reporter, writes this machine's keys into `~/.periapsis/config.json`, installs a launchd agent, and prints a one-line enrollment. Send that line to whoever runs the fleet; they authorize it on the workstation (see Enrollment above).
+The installer downloads the reporter, writes this machine's own keys into `~/.periapsis/config.json`, and prints an enrollment token. Send the token to the operator, who enrolls it on the workstation and installs the new `accounts.conf` on the broker (Enrollment, above). Then start the reporter, like the hub, in a shell:
+```
+~/.periapsis/run
+```
 
-Once enrollment is complete, the reporter should automatically launch and show up in the dashboard.
-
-The account appears on the dashboard within a few minutes — the hub re-reads the registry
-every five minutes — labeled by account and locked to its own `status.<account>` subject.
+It runs in the foreground; Ctrl-C stops it, and `PERIAPSIS_LOG=debug ~/.periapsis/run` shows
+detail. Within a few minutes — the hub re-reads the registry every five — the account appears
+on the dashboard, labeled by account and locked to its own `status.<account>` subject.
 
 To choose what a reporter watches, put an instances array in `~/.periapsis/instances.json`
-before installing (or edit it and re-run the installer). See Providers.
+before installing; afterwards, edit `instances` in `~/.periapsis/config.json` and restart the
+reporter. See Providers.
 
-Until it is enrolled, the reporter cannot connect; launchd restarts it every 30 seconds, so it
-connects shortly after the broker is updated. To remove a reporter and its keys from a Mac:
+To remove a reporter and its keys from a Mac:
 
 ```
 curl -fsSL https://status.<your-domain>/install.sh | bash -s -- --uninstall
 ```
-
-Do this before wiping `~/.periapsis` by hand; otherwise the launchd agent keeps restarting a
-reporter that is no longer there.
 
 ## Develop
 
