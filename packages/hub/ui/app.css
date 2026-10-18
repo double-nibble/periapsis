@@ -388,7 +388,7 @@ a.cal-ev:hover {
   vertical-align: 1px;
 }
 
-/* Time grid: day headers, then hours down the side. */
+/* Time grid: day headers, an all-day strip, then hours down the side. */
 .tg {
   --axis: 52px;
   display: flex;
@@ -436,6 +436,45 @@ a.cal-ev:hover {
   color: var(--bg);
   font-weight: 600;
 }
+.tg-allday {
+  grid-auto-rows: 22px;
+  row-gap: 2px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tg-axis-label {
+  grid-column: 1;
+  align-self: center;
+  padding-right: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+.tg-allday-ev {
+  margin: 0 2px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c) 32%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  line-height: 22px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Arrow ends for an event that runs past the edge of the grid. */
+.tg-allday-ev.before {
+  padding-left: 14px;
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
+}
+.tg-allday-ev.after {
+  padding-right: 14px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+}
+.tg-allday-ev.before.after {
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
+}
 .tg-body {
   position: relative;
 }
@@ -478,7 +517,8 @@ a.cal-ev:hover {
   line-height: 1.25;
   text-decoration: none;
 }
-a.tg-ev:hover {
+a.tg-ev:hover,
+a.tg-allday-ev:hover {
   filter: brightness(1.2);
 }
 .tg-ev-title {

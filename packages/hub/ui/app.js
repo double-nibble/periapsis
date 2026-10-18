@@ -1,6 +1,7 @@
 import {
   MIN_EVENT_MINUTES,
   accountColors,
+  allDayLanes,
   eventSpan,
   eventsOn,
   filterByType,
@@ -165,8 +166,8 @@ function eventChip(item) {
   return chip
 }
 
-// A Google Calendar style grid: day headers, then a time axis with each timed
-// event sized by its length and overlaps side by side.
+// A Google Calendar style grid: day headers, an all-day strip, then a time
+// axis with each timed event sized by its length and overlaps side by side.
 function timeGridEl(items, days, now, compact = false) {
   const hour = compact ? 22 : 44
   const segsByDay = days.map((d) => timedSegments(items, d))
@@ -193,6 +194,27 @@ function timeGridEl(items, days, now, compact = false) {
     head.append(h)
   }
   grid.append(head)
+
+  const lanes = allDayLanes(items, days)
+  if (lanes.length > 0) {
+    const strip = document.createElement("div")
+    strip.className = "tg-row tg-allday"
+    const label = document.createElement("div")
+    label.className = "tg-axis-label"
+    label.textContent = compact ? "" : "all day"
+    label.style.gridRow = `1 / span ${Math.max(...lanes.map((l) => l.lane)) + 1}`
+    strip.append(label)
+    for (const l of lanes) {
+      const cut = `${l.before ? " before" : ""}${l.after ? " after" : ""}`
+      const bar = linkOrBlock(l.item, `tg-allday-ev ${colorClass(l.item)}${cut}`)
+      bar.style.gridColumn = `${l.from + 2} / ${l.to + 2}`
+      bar.style.gridRow = String(l.lane + 1)
+      bar.textContent = l.item.title
+      bar.title = `${l.item.title} · ${l.item.account}`
+      strip.append(bar)
+    }
+    grid.append(strip)
+  }
 
   const body = document.createElement("div")
   body.className = "tg-row tg-body"
