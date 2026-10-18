@@ -1,15 +1,15 @@
-import { randomBytes } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { type Registry, isId, keygen, signRegistry } from "@periapsis/core"
+import { type Registry, type SignedRegistry, isId, keygen, signRegistry } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 import {
-  type AccountsMap,
   type EnrollmentBlob,
+  type RootKeys,
   accountsConf,
-  applyEnrollment,
+  accountsFromRegistry,
   buildEnrollment,
   decodeEnrollment,
   encodeEnrollment,
+  enrollSigned,
   newNatsUser,
 } from "./enroll.js"
 
@@ -32,10 +32,11 @@ function usage(): never {
       "                            write a private config.json, and print a public",
       "                            enrollment line for the operator to authorize.",
       "",
-      "  enroll [token] [--registry-file R] [--accounts-file A] [--blob F]",
+      "  enroll [token] --root-key <root.key> [--registry-file F] [--blob F]",
       "                            Authorize an enrollment (token, stdin or --blob):",
-      "                            add its identity to the registry and its nkey to",
-      "                            the accounts map.",
+      "                            verify the signed registry F (default",
+      "                            signed-registry.json; new if absent) under the root",
+      "                            key, add the identity and its nkey, and re-sign it.",
       "",
       "  sign-registry <root.key> <registry.json>",
       "                            Sign a registry with the root private key and",
@@ -50,13 +51,12 @@ function usage(): never {
       "",
       "  hub-config --hub-key <hub.key> --root-pub <root.pub.json>",
       "             --broker <wss-url> --registry <url> [--port N] [--data-dir D]",
-      "             [--broker-user U] [--broker-pass P]",
-      "                            Assemble hub-config.json from the hub key and",
-      "                            the root public key.",
+      "                            Write hub-config.json (with the hub's own nkey seed)",
+      "                            and print the hub's enrollment token.",
       "",
-      "  broker-accounts [--registry-file F | --accounts a,b,c] [--keep creds.json]",
-      "                            Generate accounts.conf (NATS per-account auth)",
-      "                            and broker-creds.json.",
+      "  broker-accounts --registry-file <signed-registry.json> [--out F]",
+      "                            Write accounts.conf: NATS authorization for every",
+      "                            enrolled nkey in the registry.",
       "",
       "  reporter-config --account A --account-key <A.key>",
       "             --root-pub <root.pub.json> --broker <wss-url> --registry <url>",
@@ -203,67 +203,67 @@ function cmdHubConfig(args: string[]): void {
 
 function cmdBrokerAccounts(args: string[]): void {
   const f = parseFlags(args)
-  if (f["accounts-file"]) {
-    const map = JSON.parse(readFileSync(f["accounts-file"], "utf8")) as AccountsMap
-    if (!map.hub) {
-      process.stderr.write("accounts map has no hub; enroll the hub first\n")
-      process.exit(1)
-    }
-    const out = f.out ?? "accounts.conf"
-    if (existsSync(out) && !f.force) {
-      process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
-      process.exit(1)
-    }
-    writeFileSync(out, accountsConf(map), { mode: 0o600 })
-    process.stderr.write(`wrote ${out} (nkey authorization; upload to the broker)\n`)
-    return
-  }
-  let names: string[]
   const regFile = f["registry-file"]
-  if (regFile) {
-    const doc = JSON.parse(readFileSync(regFile, "utf8")) as {
-      registry?: { identities?: Record<string, unknown> }
-      identities?: Record<string, unknown>
-    }
-    names = Object.keys(doc.registry?.identities ?? doc.identities ?? {})
-  } else if (f.accounts) {
-    names = f.accounts
-      .split(",")
-      .map((n) => n.trim())
-      .filter(Boolean)
-  } else {
-    usage()
+  if (!regFile) usage()
+  const doc = JSON.parse(readFileSync(regFile, "utf8")) as SignedRegistry | Registry
+  const registry = "registry" in doc ? doc.registry : doc
+  const accounts = accountsFromRegistry(registry)
+  if (!accounts.hub) {
+    process.stderr.write("the registry has no hub nkey; enroll the hub first\n")
+    process.exit(1)
   }
-  if (!names.includes("hub")) names.push("hub")
-  const keep = f.keep ? (JSON.parse(readFileSync(f.keep, "utf8")) as Record<string, string>) : {}
-  if (!f.keep) {
-    for (const out of ["accounts.conf", "broker-creds.json"]) {
-      if (existsSync(out)) {
-        process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
-        process.exit(1)
-      }
-    }
-  }
-  const creds: Record<string, string> = {}
-  const users: string[] = []
-  for (const name of names) {
-    if (name !== "hub" && !isId(name)) {
-      process.stderr.write(`invalid account id: ${name}\n`)
-      process.exit(1)
-    }
-    const password = keep[name] ?? randomBytes(24).toString("base64url")
-    creds[name] = password
-    const perms =
-      name === "hub"
-        ? '{ publish: ["commands.>"], subscribe: ["status.>", "_INBOX.>"] }'
-        : `{ publish: ["status.${name}"], subscribe: ["commands.${name}", "_INBOX.>"] }`
-    users.push(`    { user: "${name}", password: "${password}", permissions: ${perms} }`)
-  }
-  const conf = `authorization {\n  users = [\n${users.join("\n")}\n  ]\n}\n`
-  writeFileSync("accounts.conf", conf, { mode: 0o600 })
-  writeFileSync("broker-creds.json", `${JSON.stringify(creds, null, 2)}\n`, { mode: 0o600 })
+  const out = f.out ?? "accounts.conf"
+  writeFileSync(out, accountsConf(accounts), { mode: 0o600 })
   process.stderr.write(
-    "wrote accounts.conf (upload to the broker) and broker-creds.json (keep local)\n",
+    `wrote ${out} for ${Object.keys(accounts).length} accounts (install it on the broker)\n`,
+  )
+}
+
+const [cmd, ...args] = process.argv.slice(2)
+function cmdReporterEnroll(args: string[]): void {
+  const f = parseFlags(args)
+  const account = f.account
+  const broker = f.broker
+  const registry = f.registry
+  const rootPub = f["root-pub"]
+  if (!account || !broker || !registry || !rootPub) usage()
+  if (!isId(account)) {
+    process.stderr.write(`invalid account id: ${account}\n`)
+    process.exit(1)
+  }
+  const rootSignPublic = rootSignPublicFrom(
+    JSON.parse(readFileSync(rootPub, "utf8")) as Record<string, unknown>,
+  )
+  if (!rootSignPublic) {
+    process.stderr.write(`${rootPub} has no signPublic\n`)
+    process.exit(1)
+  }
+  const instances = f.instances ? (JSON.parse(readFileSync(f.instances, "utf8")) as unknown) : []
+  if (!Array.isArray(instances)) {
+    process.stderr.write(`${f.instances} must be a JSON array of instances\n`)
+    process.exit(1)
+  }
+  const out = f.out ?? "config.json"
+  if (existsSync(out)) {
+    process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
+    process.exit(1)
+  }
+  const { secrets, blob } = buildEnrollment(account)
+  const config = {
+    account,
+    brokerUrl: broker,
+    registryUrl: registry,
+    rootSignPublic,
+    signPrivate: secrets.signPrivate,
+    boxPrivate: secrets.boxPrivate,
+    natsSeed: secrets.natsSeed,
+    instances,
+    everyMs: f["every-ms"] ? Number(f["every-ms"]) : 60_000,
+  }
+  writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+  process.stdout.write(`${encodeEnrollment(blob)}\n`)
+  process.stderr.write(
+    `wrote ${out} (private keys and nkey seed — stays on this machine).\nSend the enrollment line printed above to the operator to authorize.\n`,
   )
 }
 
@@ -320,59 +320,12 @@ function cmdReporterConfig(args: string[]): void {
   process.stderr.write(`wrote ${out} (contains the account signing key — keep it local)\n`)
 }
 
-const [cmd, ...args] = process.argv.slice(2)
-function cmdReporterEnroll(args: string[]): void {
-  const f = parseFlags(args)
-  const account = f.account
-  const broker = f.broker
-  const registry = f.registry
-  const rootPub = f["root-pub"]
-  if (!account || !broker || !registry || !rootPub) usage()
-  if (!isId(account)) {
-    process.stderr.write(`invalid account id: ${account}\n`)
-    process.exit(1)
-  }
-  const rootSignPublic = rootSignPublicFrom(
-    JSON.parse(readFileSync(rootPub, "utf8")) as Record<string, unknown>,
-  )
-  if (!rootSignPublic) {
-    process.stderr.write(`${rootPub} has no signPublic\n`)
-    process.exit(1)
-  }
-  const instances = f.instances ? (JSON.parse(readFileSync(f.instances, "utf8")) as unknown) : []
-  if (!Array.isArray(instances)) {
-    process.stderr.write(`${f.instances} must be a JSON array of instances\n`)
-    process.exit(1)
-  }
-  const out = f.out ?? "config.json"
-  if (existsSync(out)) {
-    process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
-    process.exit(1)
-  }
-  const { secrets, blob } = buildEnrollment(account)
-  const config = {
-    account,
-    brokerUrl: broker,
-    registryUrl: registry,
-    rootSignPublic,
-    signPrivate: secrets.signPrivate,
-    boxPrivate: secrets.boxPrivate,
-    natsSeed: secrets.natsSeed,
-    instances,
-    everyMs: f["every-ms"] ? Number(f["every-ms"]) : 60_000,
-  }
-  writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
-  process.stdout.write(`${encodeEnrollment(blob)}\n`)
-  process.stderr.write(
-    `wrote ${out} (private keys and nkey seed — stays on this machine).\nSend the enrollment line printed above to the operator to authorize.\n`,
-  )
-}
-
 function cmdEnroll(args: string[]): void {
   const token = args[0] && !args[0].startsWith("--") ? args[0] : undefined
   const f = parseFlags(token ? args.slice(1) : args)
-  const regFile = f["registry-file"] ?? "registry.json"
-  const accFile = f["accounts-file"] ?? "accounts.json"
+  const rootKey = f["root-key"]
+  if (!rootKey) usage()
+  const regFile = f["registry-file"] ?? "signed-registry.json"
   const text = token ?? (f.blob ? readFileSync(f.blob, "utf8") : readFileSync(0, "utf8"))
   let blob: Partial<EnrollmentBlob>
   try {
@@ -385,22 +338,28 @@ function cmdEnroll(args: string[]): void {
     process.stderr.write("enrollment must have account, identity, and nkey\n")
     process.exit(1)
   }
-  const registry: Registry = existsSync(regFile)
-    ? (JSON.parse(readFileSync(regFile, "utf8")) as Registry)
-    : { identities: {}, signedAt: 0 }
-  const accounts: AccountsMap = existsSync(accFile)
-    ? (JSON.parse(readFileSync(accFile, "utf8")) as AccountsMap)
-    : {}
-  applyEnrollment(registry, accounts, {
-    account: blob.account,
-    identity: blob.identity,
-    nkey: blob.nkey,
-  })
-  writeFileSync(regFile, `${JSON.stringify(registry, null, 2)}\n`)
-  writeFileSync(accFile, `${JSON.stringify(accounts, null, 2)}\n`)
-  process.stderr.write(
-    `enrolled ${blob.account} into ${regFile} and ${accFile}.\nNext: sign-registry and upload it, regenerate accounts.conf, reload the broker.\n`,
-  )
+  const root = JSON.parse(readFileSync(rootKey, "utf8")) as Partial<RootKeys>
+  if (!root.signPublic || !root.signPrivate) {
+    process.stderr.write(`${rootKey} is not a root key file\n`)
+    process.exit(1)
+  }
+  const current = existsSync(regFile)
+    ? (JSON.parse(readFileSync(regFile, "utf8")) as SignedRegistry)
+    : null
+  let result: ReturnType<typeof enrollSigned>
+  try {
+    result = enrollSigned(
+      current,
+      { account: blob.account, identity: blob.identity, nkey: blob.nkey },
+      { signPublic: root.signPublic, signPrivate: root.signPrivate },
+    )
+  } catch (err) {
+    process.stderr.write(`${(err as Error).message}\n`)
+    process.exit(1)
+  }
+  writeFileSync(regFile, `${JSON.stringify(result.signed, null, 2)}\n`)
+  const verb = result.replaced ? "re-enrolled (replaced the previous keys for)" : "enrolled"
+  process.stderr.write(`${verb} ${blob.account}; signed ${regFile}\n`)
 }
 
 function cmdBootstrap(args: string[]): void {

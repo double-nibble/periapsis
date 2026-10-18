@@ -32,8 +32,15 @@ by account, so one view aggregates many agents without conflating them.
 
 ## Infrastructure
 
-Stand up the broker and registry and publish the installer. Done once from your
-workstation. You need a domain in Route53 and its hosted zone id.
+Setup involves three kinds of machine, which may be the same box:
+
+- the **operator workstation** holds `root.key` and your AWS credentials, and is the only
+  place anything is signed;
+- the **hub machine** runs the dashboard;
+- each **reporter Mac** runs one account's reporter.
+
+No machine ever receives another machine's private key. Everything in this section runs on
+the operator workstation, once. You need a domain in Route53 and its hosted zone id.
 
 Build and, if you authenticated to AWS with `aws login`, export the bridge profile:
 
@@ -64,16 +71,15 @@ Verify the broker is up (NATS over secure WebSocket on 443):
 node packages/cli/dist/cli.js broker-check "$BROKER_URL"
 ```
 
-Generate the root key — the fleet's trust anchor; back up `root.key` and keep it offline —
-and the hub key:
+Generate the root key — the fleet's trust anchor; back up `root.key` and keep it offline:
 
 ```
 node packages/cli/dist/cli.js keygen root
-node packages/cli/dist/cli.js keygen hub
 ```
 
-Reporters are not keyed here: each generates its own identity and NATS credential when it
-installs. Publish the installer and its public bootstrap to the status site:
+The hub and the reporters are not keyed here: each generates its own identity and NATS
+credential on its own machine. Publish the installer and its public bootstrap to the status
+site:
 
 ```
 pnpm bundle
@@ -90,18 +96,23 @@ key). No secret is ever published or downloaded.
 
 ## Enrollment
 
-Every account — the hub and each reporter — proves itself with keys it generates locally,
-and prints a one-line **enrollment** token carrying only public values. You authorize it on your
-workstation with `enroll`, which records the identity in a working `registry.json` and the
-NATS nkey in `accounts.json`. After enrolling one or more accounts, apply the change:
+Every account — the hub and each reporter — generates its keys on its own machine and prints
+a one-line **enrollment token** carrying only public values. You authorize a token on the
+operator workstation:
 
 ```
-# sign and publish the registry
-node packages/cli/dist/cli.js sign-registry root.key registry.json > signed-registry.json
-aws s3 cp signed-registry.json "s3://$REGISTRY_BUCKET/registry.json" --content-type application/json
+packages/cli/scripts/enroll.sh root.key "$REGISTRY_BUCKET" <token>
+```
 
-# regenerate the broker's nkey authorization and reload it
-node packages/cli/dist/cli.js broker-accounts --accounts-file accounts.json
+The published registry is the fleet's only record. `enroll.sh` reads it from S3, verifies it
+under the root key, adds the account's identity and NATS nkey, re-signs it, uploads it, and
+writes `accounts.conf`: the broker's authorization for every enrolled nkey. Enrolling an
+account again (say, after reinstalling) replaces its keys. Nothing else is kept locally, so
+you can enroll from any machine that has `root.key` and AWS access.
+
+After enrolling, install `accounts.conf` on the broker:
+
+```
 aws ssm start-session --target "$BROKER_INSTANCE_ID"
 #   sudo tee /etc/nats/accounts.conf >/dev/null <<'CONF'
 #   # paste the contents of accounts.conf here
@@ -110,28 +121,33 @@ aws ssm start-session --target "$BROKER_INSTANCE_ID"
 #   exit
 ```
 
-Run the apply step once after enrolling the hub and your first reporters, and again whenever
-you add a reporter. Authentication is by nkey: possession of a locally generated seed is the
-only credential, so no password is ever stored or transmitted.
+Authentication is by nkey: possession of a locally generated seed is the only credential, so
+no password is ever stored or transmitted.
 
 ## Hub
 
-`hub-config` writes `hub-config.json` (the hub's box key and its own NATS nkey seed) and
-prints the hub enrollment token. Pipe it straight into `enroll`:
+On the **hub machine**, build, generate the hub's key, and write its config. Copy
+`root.pub.json` (public) over from the workstation first. `hub-config` writes
+`hub-config.json` (the hub's box key and its own NATS nkey seed — it stays here) and prints
+the hub's enrollment token:
 
 ```
 export BROKER_URL="wss://api.<your-domain>"
 export REGISTRY_URL="https://status.<your-domain>/registry.json"
+pnpm install && pnpm build
+node packages/cli/dist/cli.js keygen hub
 node packages/cli/dist/cli.js hub-config \
   --hub-key hub.key --root-pub root.pub.json \
-  --broker "$BROKER_URL" --registry "$REGISTRY_URL" | node packages/cli/dist/cli.js enroll
+  --broker "$BROKER_URL" --registry "$REGISTRY_URL"
 ```
 
-Apply the change (Enrollment, above), then copy `hub-config.json` to your dashboard machine,
-build, and run it:
+On the **operator workstation**, enroll that token and install `accounts.conf` on the broker
+(Enrollment, above). If the hub runs on the workstation, pipe it straight through:
+`… hub-config … | packages/cli/scripts/enroll.sh root.key "$REGISTRY_BUCKET"`.
+
+Then, on the hub machine, run it:
 
 ```
-pnpm install && pnpm build
 node packages/hub/dist/main.js hub-config.json
 ```
 
@@ -145,28 +161,23 @@ It returns the aggregated fleet model as JSON, empty until a reporter publishes.
 
 ## Reporters
 
-One reporter per account, on that account's Mac. Nothing is copied to the machine and no
-password is typed — it generates its own identity and NATS credential and prints an
-enrollment line:
+On each **reporter Mac**, one per account. Nothing is copied to the machine and no password
+is typed:
 
 ```
 curl -fsSL https://status.<your-domain>/install.sh | bash -s -- https://status.<your-domain> sub1
 ```
 
-The installer downloads the reporter, writes this machine's keys into
-`~/.periapsis/config.json`, installs a launchd agent, and prints a one-line enrollment token. Send
-that line to whoever runs the fleet; they authorize it on the workstation:
+The installer downloads the reporter, writes this machine's own keys into
+`~/.periapsis/config.json`, installs a launchd agent, and prints an enrollment token. Send the
+token to the operator, who enrolls it on the workstation and installs the new
+`accounts.conf` on the broker (Enrollment, above).
 
-```
-node packages/cli/dist/cli.js enroll <token>
-```
-
-Then they apply the change (Enrollment, above). Within a minute the account appears on the
-dashboard, labeled by account and locked to its own `status.<account>` subject.
+The account appears on the dashboard within a few minutes — the hub re-reads the registry
+every five minutes — labeled by account and locked to its own `status.<account>` subject.
 
 To choose what a reporter watches, put an instances array in `~/.periapsis/instances.json`
 before installing (or edit it and re-run the installer). See Providers.
-
 
 ## Develop
 

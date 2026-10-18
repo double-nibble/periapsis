@@ -1,4 +1,11 @@
-import { type PublicIdentity, type Registry, keygen } from "@periapsis/core"
+import {
+  type PublicIdentity,
+  type Registry,
+  type SignedRegistry,
+  keygen,
+  signRegistry,
+  verifyRegistry,
+} from "@periapsis/core"
 import { createUser, fromSeed } from "nkeys.js"
 
 export interface NatsUser {
@@ -53,16 +60,38 @@ export function buildEnrollment(account: string): {
 
 export type AccountsMap = Record<string, { nkey: string }>
 
-// Authorize an enrollment: record its public identity in the registry and its
-// nkey in the accounts map. Replaces any prior entry for the same account.
-export function applyEnrollment(
-  registry: Registry,
-  accounts: AccountsMap,
+export interface RootKeys {
+  signPublic: string
+  signPrivate: string
+}
+
+// Authorize an enrollment against the published registry: verify it under the
+// root key, record the identity with its nkey, and re-sign. The signed registry
+// is the fleet's only record, so enrolling needs nothing but it and the root key.
+// Returns whether an existing identity for the account was replaced.
+export function enrollSigned(
+  current: SignedRegistry | null,
   blob: EnrollmentBlob,
-): void {
-  registry.identities[blob.account] = blob.identity
+  root: RootKeys,
+): { signed: SignedRegistry; replaced: boolean } {
+  if (current && !verifyRegistry(current, root.signPublic))
+    throw new Error("the current registry does not verify under this root key")
+  const registry: Registry = current
+    ? structuredClone(current.registry)
+    : { identities: {}, signedAt: 0 }
+  const replaced = blob.account in registry.identities
+  registry.identities[blob.account] = { ...blob.identity, nkey: blob.nkey }
   registry.signedAt = Date.now()
-  accounts[blob.account] = { nkey: blob.nkey }
+  return { signed: signRegistry(registry, root.signPrivate), replaced }
+}
+
+// Every enrolled account's nkey, read from the registry.
+export function accountsFromRegistry(registry: Registry): AccountsMap {
+  const out: AccountsMap = {}
+  for (const [name, id] of Object.entries(registry.identities)) {
+    if (id.nkey) out[name] = { nkey: id.nkey }
+  }
+  return out
 }
 
 // The NATS permissions for an account: the hub sees the whole fleet; a reporter

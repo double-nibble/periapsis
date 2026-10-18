@@ -20,6 +20,9 @@ export interface IdentityKeys {
 export interface PublicIdentity {
   signPublic: string
   boxPublic: string
+  // The account's NATS nkey (public). The broker authorizes it; the seed never
+  // leaves the account's machine.
+  nkey?: string
 }
 
 export interface Envelope {
