@@ -302,7 +302,7 @@ items.
 
 #### github
 
-Open pull requests authored by, and awaiting review from, a GitHub login. Type: `code`.
+Open pull requests authored by, and awaiting review from, a GitHub login, one item per PR titled with what to do next: Review for, Fix failing checks, Address requested changes, Reply to, Merge it, Resolve merge conflicts, Update the branch, Request reviewers, Finish the draft, or Chase reviewers after a week in review. A PR with nothing to do keeps its status (In review, Approved, waits on parent, …) and its size, checks, reviewers and open threads. Type: `code`.
 
 ```json
 { "provider": "github", "instance": "github", "every": "5m" }

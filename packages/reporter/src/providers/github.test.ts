@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
+import { node } from "./github-pr.fixture.js"
 import { credentials, github, githubProvider } from "./github.js"
 
 const origFetch = globalThis.fetch
@@ -14,17 +15,7 @@ function mockGraphql(nodes: unknown[]) {
 }
 
 function pr(over: object) {
-  return {
-    number: 1,
-    title: "A PR",
-    url: "https://github.com/acme/api/pull/1",
-    isDraft: false,
-    repository: { nameWithOwner: "acme/api" },
-    reviewDecision: null,
-    mergeStateStatus: null,
-    commits: { nodes: [{ commit: { oid: "abc", statusCheckRollup: { state: "SUCCESS" } } }] },
-    ...over,
-  }
+  return node(over)
 }
 
 test("normalizes an authored PR to a pr item with instance meta", async () => {
@@ -37,7 +28,7 @@ test("normalizes an authored PR to a pr item with instance meta", async () => {
     })
     const item = r.items[0]
     assert.equal(item?.kind, "pr")
-    assert.equal(item?.key, "https://github.com/acme/api/pull/1")
+    assert.equal(item?.key, "https://github.com/acme/api/pull/7")
     assert.equal(item?.meta?.instance, "acme")
     assert.equal(item?.group, "acme/api")
   } finally {
@@ -47,7 +38,28 @@ test("normalizes an authored PR to a pr item with instance meta", async () => {
 
 test("failing checks raise priority to 1", async () => {
   mockGraphql([
-    pr({ commits: { nodes: [{ commit: { oid: "x", statusCheckRollup: { state: "FAILURE" } } }] } }),
+    pr({
+      commits: {
+        nodes: [
+          {
+            commit: {
+              statusCheckRollup: {
+                contexts: {
+                  nodes: [
+                    {
+                      __typename: "CheckRun",
+                      name: "ci",
+                      status: "COMPLETED",
+                      conclusion: "FAILURE",
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+    }),
   ])
   try {
     const r = await github.read({
