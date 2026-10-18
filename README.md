@@ -179,6 +179,16 @@ every five minutes — labeled by account and locked to its own `status.<account
 To choose what a reporter watches, put an instances array in `~/.periapsis/instances.json`
 before installing (or edit it and re-run the installer). See Providers.
 
+Until it is enrolled, the reporter cannot connect; launchd restarts it every 30 seconds, so it
+connects shortly after the broker is updated. To remove a reporter and its keys from a Mac:
+
+```
+curl -fsSL https://status.<your-domain>/install.sh | bash -s -- --uninstall
+```
+
+Do this before wiping `~/.periapsis` by hand; otherwise the launchd agent keeps restarting a
+reporter that is no longer there.
+
 ## Develop
 
 ```
