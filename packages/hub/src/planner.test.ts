@@ -2,7 +2,14 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import type { RunResult } from "@periapsis/core"
 import { buildModel } from "./model.js"
-import { type Briefing, Planner, parseBriefing, planArgs, planContext } from "./planner.js"
+import {
+  type Briefing,
+  Planner,
+  parseBriefing,
+  planArgs,
+  planContext,
+  planPrompt,
+} from "./planner.js"
 import type { Row } from "./store.js"
 
 function row(over: Partial<Row>): Row {
@@ -120,4 +127,27 @@ test("a failed run keeps the last plan, notes why, and retries in half an hour",
   assert.equal(saved.at(-1)?.error, "claude is not installed on the hub machine")
   assert.equal(planner({}, saved, NOW.getTime() + 29 * 60_000).due(), false)
   assert.equal(planner({}, saved, NOW.getTime() + 30 * 60_000).due(), true)
+})
+
+test("planContext tells Claude each item's kind, and a task's state", () => {
+  const m = buildModel(
+    [
+      row({
+        account: "work",
+        source: "tasks",
+        kind: "task",
+        key: "t1",
+        title: "Review for bob",
+        detail: "done · Summarize the PR",
+        meta: JSON.stringify({ state: "done" }),
+        body: "Approve: the sampling config is fine.",
+      }),
+    ],
+    NOW.getTime(),
+  )
+  const task = planContext(m, NOW).needs[0]
+  assert.equal(task?.kind, "task")
+  assert.equal(task?.state, "done")
+  assert.equal(task?.reply, "Approve: the sampling config is fine.")
+  assert.match(planPrompt({}), /do not repeat the request/)
 })
