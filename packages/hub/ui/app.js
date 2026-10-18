@@ -5,34 +5,28 @@ import {
   clampHeight,
   eventSpan,
   eventsOn,
-  filterByType,
   hourRange,
-  itemsFor,
   keepCenter,
   metaRows,
   monthGrid,
-  presentTypes,
   sameDay,
   scrollToNow,
   snoozeOptions,
   timedSegments,
-  urgent,
   weekDays,
   zoomStep,
 } from "./view.js"
 
-const roster = document.getElementById("roster")
-const detail = document.getElementById("detail")
-const tabs = document.getElementById("tabs")
-const toggle = document.getElementById("nav-toggle")
+const chips = document.getElementById("chips")
+const calendar = document.getElementById("calendar")
+const left = document.getElementById("left")
+const right = document.getElementById("right")
 
-let model = { accounts: [], schedule: [] }
-let who = null
-let type = "All"
+let model = { accounts: [], schedule: [], needs: [], prs: [], stats: {} }
+let who = "All"
 let calRange = "week"
 let colors = {}
 
-const NAV_KEY = "periapsis.nav.collapsed"
 const ALLWEEK_KEY = "periapsis.allweek"
 
 // The All tab's week grid: its zoom and height persist; its scroll position
@@ -53,105 +47,6 @@ function saveAllweek() {
   } catch {}
 }
 
-function setCollapsed(collapsed) {
-  document.body.classList.toggle("nav-collapsed", collapsed)
-  toggle.setAttribute("aria-expanded", String(!collapsed))
-  try {
-    localStorage.setItem(NAV_KEY, collapsed ? "1" : "0")
-  } catch {}
-}
-
-toggle.addEventListener("click", () => {
-  setCollapsed(!document.body.classList.contains("nav-collapsed"))
-})
-
-function rosterButton(label, items) {
-  const btn = document.createElement("button")
-  btn.className = "acct"
-  btn.setAttribute("aria-current", String(label === who))
-  const u = urgent(items)
-  const name = document.createElement("span")
-  name.className = "name"
-  if (label !== "All") {
-    const swatch = document.createElement("span")
-    swatch.className = `swatch acct-c${colors[label] ?? 0}`
-    name.append(swatch)
-  }
-  name.append(label)
-  const count = document.createElement("span")
-  count.className = u > 0 ? "count urgent mono" : "count mono"
-  count.textContent = u > 0 ? `${items.length} · ${u}!` : String(items.length)
-  btn.append(name, count)
-  btn.addEventListener("click", () => {
-    who = label
-    render()
-  })
-  return btn
-}
-
-function renderRoster() {
-  roster.replaceChildren()
-  // Counts are of things that need attention; calendar events are not.
-  const tally = (items) => items.filter((i) => i.source !== "calendar")
-  roster.append(rosterButton("All", tally(itemsFor(model, "All"))))
-  for (const acct of model.accounts) roster.append(rosterButton(acct.account, tally(acct.items)))
-}
-
-function renderTabs() {
-  tabs.replaceChildren()
-  const present = presentTypes(itemsFor(model, who))
-  if (!present.includes(type) && type !== "All") type = "All"
-  for (const t of ["All", ...present]) {
-    const btn = document.createElement("button")
-    btn.className = "tab"
-    btn.textContent = t
-    btn.setAttribute("aria-current", String(t === type))
-    btn.addEventListener("click", () => {
-      type = t
-      render()
-    })
-    tabs.append(btn)
-  }
-}
-
-function itemRow(item, fleet) {
-  const row = document.createElement("div")
-  row.className = `item p${item.priority}`
-  const bar = document.createElement("div")
-  bar.className = "bar"
-  const mid = document.createElement("div")
-  const title = document.createElement("div")
-  title.className = "title"
-  title.textContent = item.title
-  mid.append(title)
-  if (item.detail) {
-    const d = document.createElement("div")
-    d.className = "detail-text"
-    d.textContent = item.detail
-    mid.append(d)
-  }
-  const tags = document.createElement("div")
-  tags.className = "tags"
-  if (fleet) {
-    const acct = document.createElement("span")
-    acct.className = `who-tag mono acct-c${colors[item.account] ?? 0}`
-    acct.textContent = item.account
-    tags.append(acct)
-  }
-  const kind = document.createElement("span")
-  kind.className = "kind"
-  kind.textContent = item.kind
-  tags.append(kind)
-  row.append(bar, mid, tags)
-  row.tabIndex = 0
-  row.setAttribute("role", "button")
-  row.addEventListener("click", () => openItem(item))
-  row.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") openItem(item)
-  })
-  return row
-}
-
 async function post(path, body) {
   const res = await fetch(path, {
     method: "POST",
@@ -169,13 +64,6 @@ document.body.append(dialog)
 dialog.addEventListener("click", (e) => {
   if (e.target === dialog) dialog.close()
 })
-
-function el(tag, className, text) {
-  const node = document.createElement(tag)
-  if (className) node.className = className
-  if (text != null) node.textContent = text
-  return node
-}
 
 // The opened item: what it is, then dismiss, snooze, or respond, which sends
 // the prompt to that account's machine.
@@ -487,16 +375,24 @@ function dayCell(items, day, now, className) {
   return cell
 }
 
+function el(tag, className, text) {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  if (text != null) node.textContent = text
+  return node
+}
+
+function fit(pane) {
+  pane.scrollTop = allweek.scroll
+  // Line the header up with the columns beside the pane's scrollbar.
+  pane.parentElement.style.setProperty("--gutter", `${pane.offsetWidth - pane.clientWidth}px`)
+}
+
 function renderCalendar(items) {
   const now = new Date()
-  const wrap = document.createElement("div")
-  wrap.className = "cal"
-  wrap.append(calSwitch())
-  if (calRange === "today") {
-    wrap.append(timeGridEl(items, [now], now))
-  } else if (calRange === "week") {
-    wrap.append(timeGridEl(items, weekDays(now), now))
-  } else {
+  const view = Object.assign(allweek, { save: saveAllweek })
+  calendar.replaceChildren(calSwitch())
+  if (calRange === "month") {
     const grid = document.createElement("div")
     grid.className = "cal-month"
     for (const d of DOW) {
@@ -516,79 +412,49 @@ function renderCalendar(items) {
         grid.append(cell)
       }
     }
-    wrap.append(grid)
+    calendar.append(grid)
+    return
   }
-  detail.append(wrap)
+  const days = calRange === "today" ? [now] : weekDays(now)
+  calendar.append(timeGridEl(items, days, now, true, view))
+  fit(calendar.querySelector(".tg-scroll"))
 }
 
-function renderDetail() {
-  detail.replaceChildren()
-  if (!who) {
-    const p = document.createElement("p")
-    p.className = "empty-detail"
-    p.textContent = "Select an account to see what it needs."
-    detail.append(p)
-    return
-  }
-  const fleet = who === "All"
-  const items = filterByType(itemsFor(model, who), type)
-  if (type === "calendar") {
-    renderCalendar(items)
-    return
-  }
-  if (type === "All") {
-    const cals = items.filter((i) => i.source === "calendar")
-    if (cals.length > 0) {
-      const sec = document.createElement("div")
-      sec.className = "allweek"
-      const h = document.createElement("div")
-      h.className = "allweek-head"
-      h.textContent = "This week"
-      const view = Object.assign(allweek, { save: saveAllweek })
-      sec.append(h, timeGridEl(cals, weekDays(new Date()), new Date(), true, view))
-      detail.append(sec)
-      const pane = sec.querySelector(".tg-scroll")
-      pane.scrollTop = allweek.scroll
-      // Line the header up with the columns beside the pane's scrollbar.
-      pane.parentElement.style.setProperty("--gutter", `${pane.offsetWidth - pane.clientWidth}px`)
-    }
-  }
-  // On the All tab the week grid shows the calendar, so the list leaves it out.
-  const listed = type === "All" ? items.filter((i) => i.source !== "calendar") : items
-  const bySource = new Map()
-  for (const item of listed) {
-    const list = bySource.get(item.source) ?? []
-    list.push(item)
-    bySource.set(item.source, list)
-  }
-  for (const [source, group] of bySource) {
-    const box = document.createElement("div")
-    box.className = "srcgroup"
-    const head = document.createElement("div")
-    head.className = "srchead"
-    const label = document.createElement("span")
-    label.textContent = source
-    const inst = document.createElement("span")
-    inst.className = "inst"
-    inst.textContent = [...new Set(group.map((i) => i.meta.instance).filter(Boolean))].join(" / ")
-    head.append(label, inst)
-    box.append(head)
-    for (const item of group) box.append(itemRow(item, fleet))
-    detail.append(box)
-  }
+function chip(label, count, urgentCount) {
+  const btn = el("button", "chip")
+  btn.setAttribute("aria-pressed", String(label === who))
+  if (label !== "All") btn.append(el("span", `swatch ${`acct-c${colors[label] ?? 0}`}`))
+  btn.append(el("span", null, label))
+  btn.append(el("span", `chip-count mono${urgentCount ? " hot" : ""}`, String(count)))
+  btn.addEventListener("click", () => {
+    who = label
+    render()
+  })
+  return btn
+}
+
+function renderChips() {
+  const mine = (a) => model.needs.filter((i) => a === "All" || i.account === a)
+  const urgentIn = (list) => list.filter((i) => i.priority === 1).length
+  chips.replaceChildren(chip("All", mine("All").length, urgentIn(mine("All"))))
+  for (const a of model.accounts)
+    chips.append(chip(a.account, mine(a.account).length, urgentIn(mine(a.account))))
 }
 
 function render() {
-  if (!who && model.accounts.length) who = "All"
   colors = accountColors(model.accounts.map((a) => a.account))
-  renderTabs()
-  renderRoster()
-  renderDetail()
+  if (who !== "All" && !model.accounts.some((a) => a.account === who)) who = "All"
+  const mine = (i) => who === "All" || i.account === who
+  renderChips()
+  renderCalendar(
+    model.accounts
+      .filter(mine)
+      .flatMap((a) => a.items)
+      .filter((i) => i.kind === "calendar"),
+  )
+  left.replaceChildren()
+  right.replaceChildren()
 }
-
-try {
-  setCollapsed(localStorage.getItem(NAV_KEY) === "1")
-} catch {}
 
 const es = new EventSource("/api/events")
 es.addEventListener("model", (e) => {
