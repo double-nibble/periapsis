@@ -12,6 +12,7 @@ import {
   enrollSigned,
   newNatsUser,
 } from "./enroll.js"
+import { urlProblem } from "./urls.js"
 
 function usage(): never {
   process.stderr.write(
@@ -152,6 +153,13 @@ function cmdHubConfig(args: string[]): void {
   const broker = f.broker
   const registry = f.registry
   if (!hubKey || !rootPub || !broker || !registry) usage()
+  const badUrl =
+    urlProblem(broker, ["wss:", "ws:"], "--broker") ??
+    urlProblem(registry, ["https:"], "--registry")
+  if (badUrl) {
+    process.stderr.write(`${badUrl}\n`)
+    process.exit(1)
+  }
   const out = "hub-config.json"
   if (existsSync(out)) {
     process.stderr.write(`${out} already exists; refusing to overwrite. Remove it first.\n`)
@@ -221,6 +229,13 @@ function cmdReporterEnroll(args: string[]): void {
   const registry = f.registry
   const rootPub = f["root-pub"]
   if (!account || !broker || !registry || !rootPub) usage()
+  const badUrl =
+    urlProblem(broker, ["wss:", "ws:"], "--broker") ??
+    urlProblem(registry, ["https:"], "--registry")
+  if (badUrl) {
+    process.stderr.write(`${badUrl}\n`)
+    process.exit(1)
+  }
   if (!isId(account)) {
     process.stderr.write(`invalid account id: ${account}\n`)
     process.exit(1)
@@ -309,6 +324,13 @@ function cmdBootstrap(args: string[]): void {
   const registry = f.registry
   const rootPub = f["root-pub"]
   if (!broker || !registry || !rootPub) usage()
+  const badUrl =
+    urlProblem(broker, ["wss:", "ws:"], "--broker") ??
+    urlProblem(registry, ["https:"], "--registry")
+  if (badUrl) {
+    process.stderr.write(`${badUrl}\n`)
+    process.exit(1)
+  }
   const rootSignPublic = rootSignPublicFrom(
     JSON.parse(readFileSync(rootPub, "utf8")) as Record<string, unknown>,
   )
