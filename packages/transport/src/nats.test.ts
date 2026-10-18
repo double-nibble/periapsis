@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { NatsBroker, connectOptions } from "./nats.js"
+import { NatsBroker, connectFailure, connectOptions } from "./nats.js"
 
 // Integration test: runs only when NATS_WS_URL is set (a ws:// or wss:// URL),
 // otherwise skipped, so CI stays green without a broker.
@@ -42,4 +42,17 @@ test("connectOptions falls back to user/password when no seed is given", () => {
   assert.equal(opts.authenticator, undefined)
   assert.equal(opts.user, "sub1")
   assert.equal(opts.pass, "pw")
+})
+
+test("connectFailure names the likely causes when the error has no message", () => {
+  assert.match(connectFailure(new Error("")), /handshake failed.*TLS certificate/)
+  assert.match(connectFailure(undefined), /handshake failed/)
+  assert.equal(connectFailure(new Error("Authorization Violation")), "Authorization Violation")
+})
+
+test("connect reports which broker it could not reach", async () => {
+  await assert.rejects(
+    NatsBroker.connect({ servers: "ws://127.0.0.1:1" }),
+    /cannot connect to ws:\/\/127\.0\.0\.1:1: \S/,
+  )
 })
