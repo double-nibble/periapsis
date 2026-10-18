@@ -13,6 +13,8 @@ export interface InstanceConfig {
   // Path to an external provider module (default export is a Provider), to plug
   // in a provider of an existing type without changing periapsis.
   module?: string
+  // How often this instance runs: "30s", "5m", "1h", or milliseconds.
+  every?: string | number
 }
 
 // The item a provider returns before the reporter stamps account/source keys.

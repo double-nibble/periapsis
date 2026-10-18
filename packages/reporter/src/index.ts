@@ -11,7 +11,7 @@ export type {
 export { toItem } from "./collect.js"
 export { github } from "./providers/github.js"
 export {
-  runOnce,
+  collectDue,
   startReporter,
   collectAll,
   type ReporterConfig,
