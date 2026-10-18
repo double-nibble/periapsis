@@ -167,20 +167,18 @@ Generate the root key:
 node packages/cli/dist/cli.js keygen root
 ```
 
-The hub and the reporters are not keyed here: each generates its own identity and NATS credential on its own machine. Publish the installer and its public bootstrap to the status site:
+The hub and the reporters are not keyed here: each generates its own identity and NATS credential on its own machine. Write the public bootstrap, then publish it with the installer and the bundles to the status site:
 
 ```bash
-pnpm bundle
 node packages/cli/dist/cli.js bootstrap \
   --broker "${BROKER_URL}" \
   --registry "${REGISTRY_URL}" \
   --root-pub root.pub.json
-aws s3 cp scripts/install.sh "s3://${REGISTRY_BUCKET}/install.sh" --content-type text/x-shellscript
-aws s3 cp dist-bundle/periapsis.mjs "s3://${REGISTRY_BUCKET}/periapsis.mjs" --content-type text/javascript
-aws s3 cp dist-bundle/reporter.mjs "s3://${REGISTRY_BUCKET}/reporter.mjs" --content-type text/javascript
-aws s3 cp bootstrap.json "s3://${REGISTRY_BUCKET}/bootstrap.json" --content-type application/json
-aws s3 cp root.pub.json "s3://${REGISTRY_BUCKET}/root.pub.json" --content-type application/json
+scripts/publish.sh "${REGISTRY_BUCKET}"
 ```
+
+Run `scripts/publish.sh` again after pulling new code; it rebuilds and re-uploads the
+installer and bundles.
 
 `bootstrap.json` holds only public values (the broker and registry URLs and the root signing
 key). No secret is ever published or downloaded.
@@ -275,6 +273,10 @@ dashboard.
 To choose what a reporter watches, edit `~/.periapsis/instances.json` (an array of
 instances; see [docs/sources.md](docs/sources.md)) and restart the reporter. It reads the file on every start, and
 logs which instances it loaded.
+
+To update a reporter to the latest published code, run the installer again with the same
+arguments and restart `~/.periapsis/run`. It keeps the machine's keys, config and
+instances.
 
 To remove a reporter and its keys from a Mac:
 
