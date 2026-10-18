@@ -659,6 +659,28 @@ a.tg-allday-ev:hover {
   margin: 0;
   overflow-wrap: anywhere;
 }
+.dlg-respond {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.dlg-prompt {
+  width: 100%;
+  resize: vertical;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font: inherit;
+}
+.dlg-prompt:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+.dlg-respond .btn {
+  justify-self: end;
+}
 .dlg-actions {
   display: flex;
   gap: 8px;
@@ -677,6 +699,14 @@ a.tg-allday-ev:hover {
 }
 .btn:hover {
   border-color: var(--muted);
+}
+.btn.primary {
+  background: color-mix(in srgb, var(--cyan) 18%, var(--raised));
+  border-color: color-mix(in srgb, var(--cyan) 50%, transparent);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .dlg-status {
   padding: 0 16px 12px;
