@@ -43,6 +43,9 @@ export interface Store {
   ): Row | null
   get(account: string, source: string, key: string): Row | null
   list(): Row[]
+  // Small JSON values the hub keeps, such as the latest daily plan.
+  getState<T>(name: string): T | null
+  setState(name: string, value: unknown): void
   close(): void
 }
 
@@ -73,6 +76,10 @@ export function openStore(path: string): Store {
       last_seen INTEGER NOT NULL,
       PRIMARY KEY (account, source)
     );
+    CREATE TABLE IF NOT EXISTS state (
+      name TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `)
   const columns = db.prepare("PRAGMA table_info(items)").all() as { name: string }[]
   if (!columns.some((c) => c.name === "body")) db.exec("ALTER TABLE items ADD COLUMN body TEXT")
@@ -98,6 +105,10 @@ export function openStore(path: string): Store {
     "INSERT INTO sources (account, source, last_seen) VALUES (?, ?, ?) ON CONFLICT (account, source) DO UPDATE SET last_seen=excluded.last_seen",
   )
   const allSources = db.prepare("SELECT account, source, last_seen AS lastSeen FROM sources")
+  const readState = db.prepare("SELECT value FROM state WHERE name=?")
+  const writeState = db.prepare(
+    "INSERT INTO state (name, value) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET value=excluded.value",
+  )
 
   function localKey(fullKey: string): string {
     const parts = fullKey.split(":")
@@ -191,6 +202,13 @@ export function openStore(path: string): Store {
       (get.get(account, source, key) as unknown as Row | undefined) ?? null,
     list: () => all.all() as unknown as Row[],
     reporters: () => allSources.all() as unknown as Reporter[],
+    getState: <T>(name: string) => {
+      const row = readState.get(name) as { value: string } | undefined
+      return row ? (JSON.parse(row.value) as T) : null
+    },
+    setState: (name, value) => {
+      writeState.run(name, JSON.stringify(value))
+    },
     close: () => db.close(),
   }
 }
