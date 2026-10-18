@@ -1,3 +1,4 @@
+import { el, needsPanel, statsTiles } from "./panels.js"
 import {
   MIN_EVENT_MINUTES,
   accountColors,
@@ -375,13 +376,6 @@ function dayCell(items, day, now, className) {
   return cell
 }
 
-function el(tag, className, text) {
-  const node = document.createElement(tag)
-  if (className) node.className = className
-  if (text != null) node.textContent = text
-  return node
-}
-
 function fit(pane) {
   pane.scrollTop = allweek.scroll
   // Line the header up with the columns beside the pane's scrollbar.
@@ -441,6 +435,12 @@ function renderChips() {
     chips.append(chip(a.account, mine(a.account).length, urgentIn(mine(a.account))))
 }
 
+const ctx = {
+  color: (account) => `acct-c${colors[account] ?? 0}`,
+  open: (item) => openItem(item),
+  post: (path, body) => post(path, body).catch((err) => console.error(err)),
+}
+
 function render() {
   colors = accountColors(model.accounts.map((a) => a.account))
   if (who !== "All" && !model.accounts.some((a) => a.account === who)) who = "All"
@@ -452,7 +452,7 @@ function render() {
       .flatMap((a) => a.items)
       .filter((i) => i.kind === "calendar"),
   )
-  left.replaceChildren()
+  left.replaceChildren(statsTiles(model.stats), needsPanel(ctx, model.needs.filter(mine)))
   right.replaceChildren()
 }
 
