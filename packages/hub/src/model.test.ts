@@ -90,3 +90,47 @@ test("a snoozed item returns when its snooze ends", () => {
   assert.equal(buildModel(rows, 99).accounts.length, 0)
   assert.equal(buildModel(rows, 100).accounts[0]?.items.length, 1)
 })
+
+test("needs holds what the operator must act on, across accounts", () => {
+  const m = buildModel(
+    [
+      row("sub1", { key: "pr-quiet", meta: '{"role":"author"}' }),
+      row("sub1", { key: "pr-act", priority: 1, meta: '{"role":"author","action":"Merge it"}' }),
+      row("sub2", { key: "cal", kind: "calendar", source: "calendar" }),
+      row("sub2", { key: "msg", kind: "message", source: "messages" }),
+    ],
+    1,
+  )
+  assert.deepEqual(
+    m.needs.map((i) => i.key),
+    ["pr-act", "msg"],
+  )
+})
+
+test("prs include hidden PRs with their status, and stats count them", () => {
+  const now = new Date(2026, 9, 18, 12).getTime()
+  const m = buildModel(
+    [
+      row("sub1", { key: "a", meta: '{"role":"author","action":"Merge it"}', priority: 1 }),
+      row("sub1", { key: "b", meta: '{"role":"reviewer"}', status: "dismissed" }),
+      row("sub1", { key: "c", status: "resolved", resolved_at: now - 3_600_000 }),
+      row("sub1", { key: "d", kind: "message", status: "snoozed", hidden_until: now + 1000 }),
+    ],
+    now,
+  )
+  assert.deepEqual(
+    m.prs.map((p) => [p.key, p.status]),
+    [
+      ["a", "active"],
+      ["b", "dismissed"],
+    ],
+  )
+  assert.deepEqual(m.stats, {
+    now: 1,
+    needs: 1,
+    later: 1,
+    resolvedToday: 1,
+    openPrs: 1,
+    toReview: 1,
+  })
+})
