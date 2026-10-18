@@ -7,6 +7,8 @@ export {
   type AccountModel,
   type ModelItem,
   type ScheduleEntry,
+  type Stats,
+  needsOperator,
 } from "./model.js"
 export { startServer, type HubServer, type Actions } from "./server.js"
 export { commander, type Respond } from "./commander.js"
