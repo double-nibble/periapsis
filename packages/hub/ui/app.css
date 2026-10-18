@@ -250,9 +250,9 @@ body {
 }
 .item .who-tag {
   font-size: 11px;
-  color: var(--cyan);
-  background: rgba(77, 184, 216, 0.1);
-  border: 1px solid rgba(77, 184, 216, 0.25);
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
   border-radius: 3px;
   padding: 1px 6px;
 }
@@ -353,18 +353,18 @@ body {
 .cal-ev {
   display: flex;
   flex-direction: column;
-  background: var(--raised);
-  border-left: 2px solid var(--cyan);
+  background: color-mix(in srgb, var(--c) 22%, var(--surface));
+  border-left: 3px solid var(--c);
   border-radius: 3px;
   padding: 3px 6px;
   text-decoration: none;
   color: var(--text);
 }
 a.cal-ev:hover {
-  background: var(--line);
+  filter: brightness(1.2);
 }
 .cal-ev .cal-time {
-  color: var(--amber);
+  color: color-mix(in srgb, var(--text) 75%, transparent);
   font-size: 11px;
 }
 .cal-ev .cal-title {
@@ -390,4 +390,39 @@ a.cal-ev:hover {
 }
 .cal-week.compact .cal-ev .cal-title {
   font-size: 11px;
+}
+
+/* One color per account, used by calendar events and the sidebar swatch. */
+.acct-c0 {
+  --c: #4db8d8;
+}
+.acct-c1 {
+  --c: #a78bfa;
+}
+.acct-c2 {
+  --c: #34d399;
+}
+.acct-c3 {
+  --c: #f472b6;
+}
+.acct-c4 {
+  --c: #60a5fa;
+}
+.acct-c5 {
+  --c: #fb923c;
+}
+.acct-c6 {
+  --c: #2dd4bf;
+}
+.acct-c7 {
+  --c: #e879f9;
+}
+.swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c);
+  margin-right: 8px;
+  vertical-align: 1px;
 }
