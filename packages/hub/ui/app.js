@@ -7,9 +7,11 @@ import {
   filterByType,
   hourRange,
   itemsFor,
+  metaRows,
   monthGrid,
   presentTypes,
   sameDay,
+  snoozeOptions,
   timedSegments,
   urgent,
   weekDays,
@@ -97,16 +99,7 @@ function itemRow(item, fleet) {
   const mid = document.createElement("div")
   const title = document.createElement("div")
   title.className = "title"
-  if (item.url) {
-    const a = document.createElement("a")
-    a.href = item.url
-    a.textContent = item.title
-    a.target = "_blank"
-    a.rel = "noreferrer"
-    title.append(a)
-  } else {
-    title.textContent = item.title
-  }
+  title.textContent = item.title
   mid.append(title)
   if (item.detail) {
     const d = document.createElement("div")
@@ -127,7 +120,95 @@ function itemRow(item, fleet) {
   kind.textContent = item.kind
   tags.append(kind)
   row.append(bar, mid, tags)
+  row.tabIndex = 0
+  row.setAttribute("role", "button")
+  row.addEventListener("click", () => openItem(item))
+  row.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") openItem(item)
+  })
   return row
+}
+
+async function post(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-periapsis": "1" },
+    body: JSON.stringify(body),
+  })
+  const out = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(out.error ?? `HTTP ${res.status}`)
+  return out
+}
+
+const dialog = document.createElement("dialog")
+dialog.className = "item-dialog"
+document.body.append(dialog)
+dialog.addEventListener("click", (e) => {
+  if (e.target === dialog) dialog.close()
+})
+
+function el(tag, className, text) {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  if (text != null) node.textContent = text
+  return node
+}
+
+// The opened item: what it is, then dismiss or snooze it.
+function openItem(item) {
+  const ref = { account: item.account, source: item.source, key: item.key }
+  const status = el("div", "dlg-status")
+  const fail = (err) => {
+    status.className = "dlg-status error"
+    status.textContent = err.message
+  }
+  const done = () => dialog.close()
+
+  const head = el("div", "dlg-head")
+  head.append(
+    el("span", `who-tag mono ${colorClass(item)}`, item.account),
+    el("span", "kind", `${item.source} · ${item.kind}`),
+  )
+  const close = el("button", "dlg-close", "×")
+  close.setAttribute("aria-label", "Close")
+  close.addEventListener("click", done)
+  head.append(close)
+
+  const body = el("div", "dlg-body")
+  body.append(el("h2", "dlg-title", item.title))
+  if (item.url) {
+    const a = el("a", "dlg-link", `Open ${new URL(item.url).hostname} ↗`)
+    a.href = item.url
+    a.target = "_blank"
+    a.rel = "noreferrer"
+    body.append(a)
+  }
+  if (item.detail) body.append(el("p", "dlg-detail", item.detail))
+  if (item.body) body.append(el("div", "dlg-text", item.body))
+  const rows = metaRows(item.meta)
+  if (rows.length) {
+    const dl = el("dl", "dlg-meta")
+    for (const [k, v] of rows) dl.append(el("dt", "mono", k), el("dd", null, v))
+    body.append(dl)
+  }
+
+  const actions = el("div", "dlg-actions")
+  const dismiss = el("button", "btn", "Dismiss")
+  dismiss.addEventListener("click", () =>
+    post("/api/act", { ...ref, action: "dismiss" }).then(done, fail),
+  )
+  const snooze = el("select", "btn")
+  snooze.append(el("option", null, "Snooze…"))
+  const options = snoozeOptions(new Date())
+  for (const o of options) snooze.append(el("option", null, o.label))
+  snooze.addEventListener("change", () => {
+    const o = options[snooze.selectedIndex - 1]
+    if (o) post("/api/act", { ...ref, action: "snooze", until: o.until }).then(done, fail)
+  })
+  actions.append(dismiss, snooze)
+
+  dialog.replaceChildren(head, body, actions, status)
+  dialog.showModal()
 }
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]

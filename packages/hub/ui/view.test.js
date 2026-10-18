@@ -10,10 +10,12 @@ import {
   fleetItems,
   hourRange,
   itemsFor,
+  metaRows,
   monthGrid,
   parseWhen,
   presentTypes,
   sameDay,
+  snoozeOptions,
   startOfWeek,
   timedSegments,
   urgent,
@@ -199,4 +201,35 @@ test("hourRange covers the working day, widened to fit events", () => {
 
 test("accountColors gives each account a stable slot", () => {
   assert.deepEqual(accountColors(["sub1", "sub2"]), { sub1: 0, sub2: 1 })
+})
+
+test("snoozeOptions offers this evening only while it is ahead", () => {
+  const morning = snoozeOptions(new Date(2026, 9, 14, 10, 0))
+  assert.deepEqual(
+    morning.map((o) => o.label),
+    ["1 hour", "This evening", "Tomorrow morning", "Next week"],
+  )
+  assert.equal(new Date(morning[1].until).getHours(), 18)
+  const night = snoozeOptions(new Date(2026, 9, 14, 20, 0))
+  assert.equal(
+    night.some((o) => o.label === "This evening"),
+    false,
+  )
+})
+
+test("snoozeOptions next week is the following Monday at 9", () => {
+  const sunday = snoozeOptions(new Date(2026, 9, 18, 12, 0))
+  const next = new Date(sunday.at(-1).until)
+  assert.equal(next.getDay(), 1)
+  assert.equal(next.getDate(), 19)
+  assert.equal(next.getHours(), 9)
+  const monday = new Date(snoozeOptions(new Date(2026, 9, 19, 12, 0)).at(-1).until)
+  assert.equal(monday.getDate(), 26)
+})
+
+test("metaRows hides the instance and sorts the rest", () => {
+  assert.deepEqual(metaRows({ instance: "gh", state: "done", at: "x" }), [
+    ["at", "x"],
+    ["state", "done"],
+  ])
 })

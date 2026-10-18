@@ -243,12 +243,12 @@ body {
   gap: 4px;
   align-self: center;
 }
-.item .kind {
+.kind {
   font-family: "IBM Plex Mono", monospace;
   color: var(--muted);
   font-size: 12px;
 }
-.item .who-tag {
+.who-tag {
   font-size: 11px;
   color: var(--c);
   background: color-mix(in srgb, var(--c) 12%, transparent);
@@ -567,4 +567,125 @@ a.tg-allday-ev:hover {
 .tg.compact .tg-ev {
   padding: 1px 4px;
   font-size: 11px;
+}
+
+.item[role="button"] {
+  cursor: pointer;
+}
+.item[role="button"]:hover .title,
+.item[role="button"]:focus-visible .title {
+  color: var(--cyan);
+}
+.item[role="button"]:focus-visible {
+  outline: 1px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+.item-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  overflow: auto;
+}
+.item-dialog::backdrop {
+  background: rgb(5 9 14 / 70%);
+}
+.dlg-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.dlg-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dlg-close:hover {
+  color: var(--text);
+}
+.dlg-body {
+  padding: 16px;
+}
+.dlg-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.dlg-link {
+  color: var(--cyan);
+  text-decoration: none;
+  font-size: 13px;
+}
+.dlg-link:hover {
+  text-decoration: underline;
+}
+.dlg-detail {
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+.dlg-text {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow: auto;
+}
+.dlg-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 14px;
+  margin: 14px 0 0;
+  font-size: 13px;
+}
+.dlg-meta dt {
+  color: var(--muted);
+}
+.dlg-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.dlg-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.btn {
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn:hover {
+  border-color: var(--muted);
+}
+.dlg-status {
+  padding: 0 16px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.dlg-status:empty {
+  display: none;
+}
+.dlg-status.error {
+  color: var(--amber);
 }
