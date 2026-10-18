@@ -66,8 +66,10 @@ function rosterButton(label, items) {
 
 function renderRoster() {
   roster.replaceChildren()
-  roster.append(rosterButton("All", itemsFor(model, "All")))
-  for (const acct of model.accounts) roster.append(rosterButton(acct.account, acct.items))
+  // Counts are of things that need attention; calendar events are not.
+  const tally = (items) => items.filter((i) => i.source !== "calendar")
+  roster.append(rosterButton("All", tally(itemsFor(model, "All"))))
+  for (const acct of model.accounts) roster.append(rosterButton(acct.account, tally(acct.items)))
 }
 
 function renderTabs() {
@@ -351,8 +353,10 @@ function renderDetail() {
       detail.append(sec)
     }
   }
+  // On the All tab the week grid shows the calendar, so the list leaves it out.
+  const listed = type === "All" ? items.filter((i) => i.source !== "calendar") : items
   const bySource = new Map()
-  for (const item of items) {
+  for (const item of listed) {
     const list = bySource.get(item.source) ?? []
     list.push(item)
     bySource.set(item.source, list)
