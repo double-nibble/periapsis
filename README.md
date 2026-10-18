@@ -110,7 +110,7 @@ export REGISTRY_URL="https://status.${DOMAIN}/registry.json"
 curl -fsSLO "https://status.${DOMAIN}/root.pub.json"
 ```
 
-The `hub-config` writes `hub-config.json` (the hub's box key and its own NATS nkey seed) and prints the hub enrollment. Pipe it straight into `enroll`:
+The `hub-config` writes `hub-config.json` (the hub's box and signing keys and its own NATS nkey seed) and prints the hub enrollment. Pipe it straight into `enroll`:
 
 ```bash
 node packages/cli/dist/cli.js keygen hub
@@ -183,6 +183,32 @@ on the dashboard, labeled by account and locked to its own `status.<account>` su
 To choose what a reporter watches, edit `~/.periapsis/instances.json` (an array of
 instances; see Providers) and restart the reporter. It reads the file on every start, and
 logs which instances it loaded.
+
+### Responding from the dashboard
+
+Click an item to open it. From there you can dismiss it, snooze it, or respond: type what
+that account's Claude should do about it, such as "Address the comments on this PR, reply
+to each, and push the fixes" or "Summarize this PR and recommend whether to approve". The
+hub seals the prompt to that account and signs it with its own key; the reporter runs it
+only if the hub's signature, from the registry, checks out.
+
+The reporter runs each response in turn with the machine's own `claude` and settings, and
+reports it as a task: queued, running, then done or failed with Claude's reply. Respond to
+a task to continue the same Claude session. A dismissed or snoozed item comes back when it
+has new activity.
+
+A machine runs responses only when its `~/.periapsis/config.json` has a `respond` section:
+
+```json
+"respond": { "cwd": "~/code", "permissionMode": "auto", "timeoutMinutes": 30 }
+```
+
+- `cwd` — where Claude starts (default `~`).
+- `permissionMode` — Claude's permission mode for the run (default `auto`).
+- `model`, `timeoutMinutes` — optional; the timeout defaults to 30 minutes.
+
+A hub configured before it signed commands needs its signing key: copy `signPrivate`
+from `hub.key` into `hub-config.json`.
 
 To remove a reporter and its keys from a Mac:
 
