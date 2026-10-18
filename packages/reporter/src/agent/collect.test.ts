@@ -66,14 +66,14 @@ test("collectAgentInstance runs auto mode with the source's write tools denied",
 })
 
 test("collectAgentInstance refuses auto mode for a source with no write tools named", async () => {
-  const slack = {
-    instance: "s",
-    source: "messages",
+  const linear = {
+    instance: "l",
+    source: "tickets",
     mode: "agent" as const,
     permissionMode: "auto",
   }
   await assert.rejects(
-    collectAgentInstance("sub2", "messages", slack, fakeRun("{}")),
+    collectAgentInstance("sub2", "tickets", linear, fakeRun("{}")),
     /params.deny/,
   )
 })
