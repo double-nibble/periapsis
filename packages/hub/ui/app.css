@@ -286,34 +286,6 @@ body {
   border-color: var(--amber);
   font-weight: 600;
 }
-.cal-agenda {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 520px;
-}
-.cal-week {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-.cal-day {
-  min-height: 150px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.cal-dayhead {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--line);
-}
 .cal-month {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -345,7 +317,6 @@ body {
   font-size: 12px;
   font-family: "IBM Plex Mono", monospace;
 }
-.cal-day.today,
 .cal-cell.today {
   border-color: var(--amber);
   box-shadow: inset 0 0 0 1px var(--amber);
@@ -381,16 +352,6 @@ a.cal-ev:hover {
   font-weight: 600;
   margin-bottom: 8px;
 }
-.cal-week.compact {
-  gap: 4px;
-}
-.cal-week.compact .cal-day {
-  min-height: 92px;
-  padding: 5px;
-}
-.cal-week.compact .cal-ev .cal-title {
-  font-size: 11px;
-}
 
 /* One color per account, used by calendar events and the sidebar swatch. */
 .acct-c0 {
@@ -425,4 +386,134 @@ a.cal-ev:hover {
   background: var(--c);
   margin-right: 8px;
   vertical-align: 1px;
+}
+
+/* Time grid: day headers, then hours down the side. */
+.tg {
+  --axis: 52px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.tg-row {
+  display: grid;
+  grid-template-columns: var(--axis) repeat(var(--days), minmax(0, 1fr));
+}
+.tg-head {
+  border-bottom: 1px solid var(--line);
+}
+.tg-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  border-left: 1px solid var(--line);
+}
+.tg-dow {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tg-num {
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  text-align: center;
+  border-radius: 50%;
+  font-size: 17px;
+}
+.tg-day.today .tg-dow {
+  color: var(--amber);
+}
+.tg-day.today .tg-num {
+  background: var(--amber);
+  color: var(--bg);
+  font-weight: 600;
+}
+.tg-body {
+  position: relative;
+}
+.tg-axis {
+  position: relative;
+}
+.tg-hour {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+}
+.tg-col {
+  position: relative;
+  border-left: 1px solid var(--line);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--line) 0,
+    var(--line) 1px,
+    transparent 1px,
+    transparent var(--hour)
+  );
+}
+.tg-col.today {
+  background-color: rgba(232, 163, 61, 0.04);
+}
+.tg-ev {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 2px 5px;
+  border-left: 3px solid var(--c);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c) 30%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.25;
+  text-decoration: none;
+}
+a.tg-ev:hover {
+  filter: brightness(1.2);
+}
+.tg-ev-title {
+  font-weight: 500;
+}
+.tg-ev-time {
+  color: color-mix(in srgb, var(--text) 75%, transparent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+.tg-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: 2px;
+  background: #f87171;
+}
+.tg-now::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f87171;
+}
+.tg.compact .tg-num {
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  font-size: 13px;
+}
+.tg.compact .tg-ev {
+  padding: 1px 4px;
+  font-size: 11px;
 }
