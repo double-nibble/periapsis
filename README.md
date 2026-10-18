@@ -381,7 +381,16 @@ connector tools and contract:
 { "source": "calendar", "instance": "mycal", "mode": "agent" }
 ```
 
-Built-in: `calendar` (Google Calendar connector), `email` (Gmail), `messages` (Slack).
+Built-in: `calendar` (Google Calendar connector), `email` (Gmail), `messages` (Slack),
+`tickets` (Linear issues), `projects` (Linear projects: health, progress, next steps, and
+issues due soon) and `docs` (Notion RFCs: open comment threads and to-dos). `docs` watches
+the pages in `params.pages` when set, else your recent pages titled `RFC…`:
+
+```json
+{ "source": "projects", "instance": "linear", "mode": "agent", "every": "1h" },
+{ "source": "docs", "instance": "rfcs", "mode": "agent", "every": "1h",
+  "params": { "pages": ["https://www.notion.so/…"] } }
+```
 
 A source can also be defined inline, so a new one needs only config — no code change:
 

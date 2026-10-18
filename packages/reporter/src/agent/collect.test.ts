@@ -77,3 +77,35 @@ test("collectAgentInstance refuses auto mode for a source with no write tools na
     /params.deny/,
   )
 })
+
+test("an agent item may set its kind, extra meta and a body", async () => {
+  const reply = `\`\`\`json
+{ "items": [
+  { "key": "p1", "kind": "project", "title": "Observability", "fingerprint": "f", "meta": { "health": "atRisk", "progress": 0.19, "instance": "spoof" }, "body": "Next: ship it" },
+  { "key": "x", "kind": "nonsense", "title": "t", "fingerprint": "f" }
+] }
+\`\`\``
+  const projects = { instance: "lin", source: "projects", mode: "agent" as const }
+  const items = await collectAgentInstance("sub2", "projects", projects, fakeRun(reply))
+  assert.equal(items[0]?.kind, "project")
+  assert.deepEqual(items[0]?.meta, { health: "atRisk", progress: "0.19", instance: "lin" })
+  assert.equal(items[0]?.body, "Next: ship it")
+  assert.equal(items[1]?.kind, "project")
+})
+
+test("the prompt carries an instance's own settings but not its inline source", async () => {
+  let prompt = ""
+  const run = (opts: RunOptions) => {
+    prompt = opts.prompt
+    return Promise.resolve({ result: '{"items":[]}', isError: false, costUsd: null, turns: null })
+  }
+  const docs = {
+    instance: "rfcs",
+    source: "docs",
+    mode: "agent" as const,
+    params: { pages: ["https://notion.so/rfc-1"] },
+  }
+  await collectAgentInstance("sub2", "docs", docs, run)
+  assert.match(prompt, /"pages"/)
+  assert.match(prompt, /notion-get-comments|comment threads/)
+})

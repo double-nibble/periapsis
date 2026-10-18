@@ -1,4 +1,4 @@
-import { type Item, safeLink } from "@periapsis/core"
+import { type Item, isKind, safeLink } from "@periapsis/core"
 import type { InstanceConfig } from "../provider.js"
 import { monthWindow } from "../providers/window.js"
 import { type RunOptions, type RunResult, extractJson, permissionMode, runClaude } from "./run.js"
@@ -17,6 +17,19 @@ interface AgentItem {
   at?: unknown
   end?: unknown
   allDay?: unknown
+  body?: unknown
+  kind?: unknown
+  meta?: unknown
+}
+
+// Extra facts a source reports, as short strings; the reporter's own keys win.
+function extraMeta(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {}
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>).slice(0, 20))
+    if (typeof v === "string" || typeof v === "number")
+      out[k.slice(0, 40)] = String(v).slice(0, 300)
+  return out
 }
 
 function toItem(
@@ -31,20 +44,29 @@ function toItem(
   const end = typeof raw.end === "string" ? raw.end : undefined
   return {
     key: `${account}:${source}:${instance}/${String(raw.key ?? "")}`,
-    kind,
+    kind: isKind(raw.kind) ? raw.kind : kind,
     priority,
     title: String(raw.title ?? ""),
     detail: raw.detail != null ? String(raw.detail) : null,
+    body: typeof raw.body === "string" ? raw.body.slice(0, 16_000) : null,
     url: safeLink(raw.url),
     group: raw.group != null ? String(raw.group) : null,
     fingerprint: String(raw.fingerprint ?? ""),
     meta: {
+      ...extraMeta(raw.meta),
       instance,
       ...(at ? { at } : {}),
       ...(end ? { end } : {}),
       ...(raw.allDay === true ? { allDay: "true" } : {}),
     },
   }
+}
+
+// The instance's own settings for the source, such as which pages to watch;
+// the inline source definition is already in the prompt.
+function settings(params: Record<string, unknown> = {}): Record<string, unknown> {
+  const { tools, instructions, deny, kind, ...rest } = params
+  return rest
 }
 
 // Runs one agent-backed instance: headless Claude reads the source's connectors
@@ -68,6 +90,7 @@ export async function collectAgentInstance(
     instance: instance.instance,
     now: now.toISOString(),
     window: { start: start.toISOString(), end: end.toISOString() },
+    params: settings(instance.params),
   }
   const { prompt, tools, deny } = buildPrompt(spec, context)
   const res = await run({ prompt, tools, deny, permissionMode: mode, model })
