@@ -186,3 +186,42 @@ export function prsPanel(ctx, prs, openGroups) {
   }
   return box
 }
+
+// The day's plan: a headline and ordered steps, each tagged with its account.
+export function todayPanel(ctx, briefing, who) {
+  const box = el("section", "panel today")
+  const head = el("div", "panel-head")
+  head.append(el("span", "panel-title", "Today"))
+  const when = briefing?.running
+    ? "planning…"
+    : briefing?.at
+      ? `planned ${ago(new Date(briefing.at).toISOString())} ago`
+      : ""
+  head.append(el("span", "panel-when", when))
+  const again = el("button", "replan", "↻")
+  again.title = "Plan again now"
+  again.setAttribute("aria-label", "Plan again now")
+  again.disabled = Boolean(briefing?.running)
+  again.addEventListener("click", () => ctx.post("/api/plan", {}))
+  head.append(again)
+  box.append(head)
+  const body = el("div", "today-body")
+  if (briefing?.error) body.append(el("p", "today-error", briefing.error))
+  if (!briefing?.headline) {
+    if (!briefing?.error) body.append(el("p", "empty", "No plan yet."))
+    box.append(body)
+    return box
+  }
+  body.append(el("p", "today-headline", briefing.headline))
+  const list = el("ol", "today-steps")
+  for (const step of briefing.steps) {
+    if (who !== "All" && step.account && step.account !== who) continue
+    const li = el("li")
+    if (step.account) li.append(accountTag(ctx, step.account), " ")
+    li.append(step.text)
+    list.append(li)
+  }
+  body.append(list)
+  box.append(body)
+  return box
+}

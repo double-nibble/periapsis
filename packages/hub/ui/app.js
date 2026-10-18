@@ -1,4 +1,4 @@
-import { el, needsPanel, prsPanel, statsTiles } from "./panels.js"
+import { el, needsPanel, prsPanel, statsTiles, todayPanel } from "./panels.js"
 import {
   MIN_EVENT_MINUTES,
   accountColors,
@@ -454,7 +454,11 @@ function render() {
       .flatMap((a) => a.items)
       .filter((i) => i.kind === "calendar"),
   )
-  left.replaceChildren(statsTiles(model.stats), needsPanel(ctx, model.needs.filter(mine)))
+  left.replaceChildren(
+    todayPanel(ctx, model.briefing, who),
+    statsTiles(model.stats),
+    needsPanel(ctx, model.needs.filter(mine)),
+  )
   right.replaceChildren(prsPanel(ctx, model.prs.filter(mine), openGroups))
 }
 
