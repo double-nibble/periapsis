@@ -4,9 +4,12 @@ import { type Registry, isId, keygen, signRegistry } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 import {
   type AccountsMap,
+  type EnrollmentBlob,
   accountsConf,
   applyEnrollment,
   buildEnrollment,
+  decodeEnrollment,
+  encodeEnrollment,
   newNatsUser,
 } from "./enroll.js"
 
@@ -29,8 +32,8 @@ function usage(): never {
       "                            write a private config.json, and print a public",
       "                            enrollment line for the operator to authorize.",
       "",
-      "  enroll [--registry-file R] [--accounts-file A] [--blob F]",
-      "                            Authorize an enrollment (from stdin or --blob):",
+      "  enroll [token] [--registry-file R] [--accounts-file A] [--blob F]",
+      "                            Authorize an enrollment (token, stdin or --blob):",
       "                            add its identity to the registry and its nkey to",
       "                            the accounts map.",
       "",
@@ -192,7 +195,7 @@ function cmdHubConfig(args: string[]): void {
     identity: { signPublic: hub.signPublic, boxPublic: hub.boxPublic },
     nkey: user.publicKey,
   }
-  process.stdout.write(`${JSON.stringify(blob)}\n`)
+  process.stdout.write(`${encodeEnrollment(blob)}\n`)
   process.stderr.write(
     `wrote ${out} (hub box private key and nkey seed — keep it local).\nEnroll the hub with the line printed above: periapsis enroll\n`,
   )
@@ -359,21 +362,24 @@ function cmdReporterEnroll(args: string[]): void {
     everyMs: f["every-ms"] ? Number(f["every-ms"]) : 60_000,
   }
   writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
-  process.stdout.write(`${JSON.stringify(blob)}\n`)
+  process.stdout.write(`${encodeEnrollment(blob)}\n`)
   process.stderr.write(
     `wrote ${out} (private keys and nkey seed — stays on this machine).\nSend the enrollment line printed above to the operator to authorize.\n`,
   )
 }
 
 function cmdEnroll(args: string[]): void {
-  const f = parseFlags(args)
+  const token = args[0] && !args[0].startsWith("--") ? args[0] : undefined
+  const f = parseFlags(token ? args.slice(1) : args)
   const regFile = f["registry-file"] ?? "registry.json"
   const accFile = f["accounts-file"] ?? "accounts.json"
-  const text = f.blob ? readFileSync(f.blob, "utf8") : readFileSync(0, "utf8")
-  const blob = JSON.parse(text) as {
-    account?: string
-    identity?: Registry["identities"][string]
-    nkey?: string
+  const text = token ?? (f.blob ? readFileSync(f.blob, "utf8") : readFileSync(0, "utf8"))
+  let blob: Partial<EnrollmentBlob>
+  try {
+    blob = decodeEnrollment(text)
+  } catch {
+    process.stderr.write("not an enrollment token; paste the whole line the installer printed\n")
+    process.exit(1)
   }
   if (!blob.account || !isId(blob.account) || !blob.identity || !blob.nkey) {
     process.stderr.write("enrollment must have account, identity, and nkey\n")

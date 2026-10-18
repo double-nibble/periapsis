@@ -81,3 +81,16 @@ export function accountsConf(accounts: AccountsMap): string {
     .map(([name, { nkey }]) => `    { nkey: "${nkey}", permissions: ${permissionsFor(name)} }`)
   return `authorization {\n  users = [\n${users.join("\n")}\n  ]\n}\n`
 }
+
+// The enrollment as one opaque token (base64url of its JSON): no quotes,
+// backslashes or spaces, so it survives copy and paste through any shell.
+export function encodeEnrollment(blob: EnrollmentBlob): string {
+  return Buffer.from(JSON.stringify(blob)).toString("base64url")
+}
+
+// Accepts a token from encodeEnrollment, or the raw JSON it encodes.
+export function decodeEnrollment(text: string): EnrollmentBlob {
+  const t = text.trim()
+  const json = t.startsWith("{") ? t : Buffer.from(t, "base64url").toString("utf8")
+  return JSON.parse(json) as EnrollmentBlob
+}

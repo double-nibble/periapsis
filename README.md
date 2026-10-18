@@ -91,7 +91,7 @@ key). No secret is ever published or downloaded.
 ## Enrollment
 
 Every account — the hub and each reporter — proves itself with keys it generates locally,
-and prints a one-line **enrollment** carrying only public values. You authorize it on your
+and prints a one-line **enrollment** token carrying only public values. You authorize it on your
 workstation with `enroll`, which records the identity in a working `registry.json` and the
 NATS nkey in `accounts.json`. After enrolling one or more accounts, apply the change:
 
@@ -117,7 +117,7 @@ only credential, so no password is ever stored or transmitted.
 ## Hub
 
 `hub-config` writes `hub-config.json` (the hub's box key and its own NATS nkey seed) and
-prints the hub enrollment. Pipe it straight into `enroll`:
+prints the hub enrollment token. Pipe it straight into `enroll`:
 
 ```
 export BROKER_URL="wss://api.<your-domain>"
@@ -154,11 +154,11 @@ curl -fsSL https://status.<your-domain>/install.sh | bash -s -- https://status.<
 ```
 
 The installer downloads the reporter, writes this machine's keys into
-`~/.periapsis/config.json`, installs a launchd agent, and prints a one-line enrollment. Send
+`~/.periapsis/config.json`, installs a launchd agent, and prints a one-line enrollment token. Send
 that line to whoever runs the fleet; they authorize it on the workstation:
 
 ```
-echo '<the enrollment line>' | node packages/cli/dist/cli.js enroll
+node packages/cli/dist/cli.js enroll <token>
 ```
 
 Then they apply the change (Enrollment, above). Within a minute the account appears on the

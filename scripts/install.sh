@@ -74,7 +74,7 @@ echo
 echo "Installed and running (logs: $DIR/reporter.log)."
 if [ -n "$BLOB" ]; then
   echo
-  echo "Send this enrollment line to your operator to authorize this reporter:"
+  echo "Send this enrollment token to your operator to authorize this reporter:"
   echo
   echo "  $BLOB"
   echo
