@@ -9,6 +9,8 @@ export interface Item {
   priority: 1 | 2 | 3
   title: string
   detail: string | null
+  // Long-form text, such as an agent's reply, shown when the item is opened.
+  body?: string | null
   url: string | null
   group: string | null
   fingerprint: string
@@ -25,8 +27,9 @@ export interface Snapshot {
 }
 
 const MAX_ITEMS = 300
+const MAX_BODY = 16_000
 
-function str(value: unknown, max: number, field: string, required = false): string | null {
+export function str(value: unknown, max: number, field: string, required = false): string | null {
   if (value === undefined || value === null || value === "") {
     if (required) throw new SchemaError(`${field} is required`)
     return null
@@ -62,6 +65,7 @@ function item(raw: unknown, i: number, account: string, source: string): Item {
     priority: p,
     title: str(r.title, 300, `${f}.title`, true) as string,
     detail: str(r.detail, 600, `${f}.detail`),
+    body: str(r.body, MAX_BODY, `${f}.body`),
     url: safeLink(r.url),
     group: str(r.group, 120, `${f}.group`),
     fingerprint: str(r.fingerprint, 300, `${f}.fingerprint`, true) as string,
