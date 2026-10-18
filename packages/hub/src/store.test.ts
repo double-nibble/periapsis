@@ -106,3 +106,12 @@ test("an item's body is stored and refreshed", () => {
   assert.equal(s.get("sub1", "tasks", "nope"), null)
   s.close()
 })
+
+test("state keeps small JSON values by name", () => {
+  const s = openStore(":memory:")
+  assert.equal(s.getState("briefing"), null)
+  s.setState("briefing", { headline: "a" })
+  s.setState("briefing", { headline: "b" })
+  assert.deepEqual(s.getState("briefing"), { headline: "b" })
+  s.close()
+})
