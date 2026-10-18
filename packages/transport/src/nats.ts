@@ -31,6 +31,17 @@ export function connectOptions(config: NatsConfig): ConnectionOptions {
   return opts
 }
 
+// Why a connection failed. A failed WebSocket handshake can surface with an
+// empty message (Node's built-in WebSocket gives none), so name the likely
+// causes rather than reporting nothing.
+export function connectFailure(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err ?? "")
+  return (
+    message.trim() ||
+    "the WebSocket handshake failed: the broker is unreachable, not running, or its TLS certificate is not valid"
+  )
+}
+
 export class NatsBroker implements Broker {
   private nc: NatsConnection
 
@@ -43,7 +54,12 @@ export class NatsBroker implements Broker {
   }
 
   static async connect(config: NatsConfig): Promise<NatsBroker> {
-    const nc = await connect(connectOptions(config))
+    let nc: NatsConnection
+    try {
+      nc = await connect(connectOptions(config))
+    } catch (err) {
+      throw new Error(`cannot connect to ${String(config.servers)}: ${connectFailure(err)}`)
+    }
     log.info("connected", { servers: config.servers })
     return new NatsBroker(nc)
   }

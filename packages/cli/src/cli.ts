@@ -102,7 +102,7 @@ async function cmdBrokerCheck(url: string): Promise<void> {
   try {
     broker = await NatsBroker.connect({ servers: url })
   } catch (err) {
-    process.stderr.write(`broker-check: cannot reach ${url}: ${(err as Error).message}\n`)
+    process.stderr.write(`broker-check: ${(err as Error).message}\n`)
     process.exit(1)
   }
   const info = broker.info

@@ -55,7 +55,9 @@ export async function main(configPath: string): Promise<void> {
 const configPath = process.argv[2]
 if (configPath) {
   main(configPath).catch((err) => {
-    process.stderr.write(`fatal: ${err.message}\n`)
+    process.stderr.write(
+      `fatal: ${err instanceof Error && err.message ? err.message : String(err)}\n`,
+    )
     process.exit(1)
   })
 }
