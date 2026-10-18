@@ -80,3 +80,10 @@ test("two instances of same vendor coexist with distinct keys and meta", () => {
   assert.equal(s.items[0]?.meta.instance, "alpha")
   assert.equal(s.items[1]?.meta.instance, "beta")
 })
+
+test("an item carries a long body up to its limit", () => {
+  const s = validateSnapshot({ ...base, items: [{ ...okItem, body: "b".repeat(20_000) }] }, 1)
+  assert.equal(s.items[0]?.body?.length, 16_000)
+  const plain = validateSnapshot({ ...base, items: [okItem] }, 1)
+  assert.equal(plain.items[0]?.body, null)
+})
