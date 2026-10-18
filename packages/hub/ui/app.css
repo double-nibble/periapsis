@@ -719,3 +719,59 @@ a.tg-allday-ev:hover {
 .dlg-status.error {
   color: var(--amber);
 }
+
+.tg-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+.tg:has(.tg-scroll) .tg-head,
+.tg:has(.tg-scroll) .tg-allday {
+  padding-right: var(--gutter, 0px);
+}
+.tg:has(.tg-scroll) .tg-head {
+  border-bottom: 1px solid var(--line);
+}
+.tg-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+.tg-zoom button {
+  width: 16px;
+  height: 18px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.tg-zoom button:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+.tg-resize {
+  height: 8px;
+  border-top: 1px solid var(--line);
+  cursor: ns-resize;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tg-resize::before {
+  content: "";
+  width: 36px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--line);
+}
+.tg-resize:hover::before {
+  background: var(--muted);
+}

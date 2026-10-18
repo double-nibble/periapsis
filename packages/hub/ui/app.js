@@ -2,11 +2,13 @@ import {
   MIN_EVENT_MINUTES,
   accountColors,
   allDayLanes,
+  clampHeight,
   eventSpan,
   eventsOn,
   filterByType,
   hourRange,
   itemsFor,
+  keepCenter,
   metaRows,
   monthGrid,
   presentTypes,
@@ -15,6 +17,7 @@ import {
   timedSegments,
   urgent,
   weekDays,
+  zoomStep,
 } from "./view.js"
 
 const roster = document.getElementById("roster")
@@ -29,6 +32,25 @@ let calRange = "week"
 let colors = {}
 
 const NAV_KEY = "periapsis.nav.collapsed"
+const ALLWEEK_KEY = "periapsis.allweek"
+
+// The All tab's week grid: its zoom and height persist; its scroll position
+// survives re-renders.
+const allweek = { zoom: 1, height: null, scroll: null }
+try {
+  const saved = JSON.parse(localStorage.getItem(ALLWEEK_KEY) ?? "{}")
+  if (typeof saved.zoom === "number") allweek.zoom = saved.zoom
+  if (typeof saved.height === "number") allweek.height = clampHeight(saved.height)
+} catch {}
+
+function saveAllweek() {
+  try {
+    localStorage.setItem(
+      ALLWEEK_KEY,
+      JSON.stringify({ zoom: allweek.zoom, height: allweek.height }),
+    )
+  } catch {}
+}
 
 function setCollapsed(collapsed) {
   document.body.classList.toggle("nav-collapsed", collapsed)
@@ -281,10 +303,15 @@ function eventChip(item) {
 
 // A Google Calendar style grid: day headers, an all-day strip, then a time
 // axis with each timed event sized by its length and overlaps side by side.
-function timeGridEl(items, days, now, compact = false) {
-  const hour = compact ? 22 : 44
+//
+// With a view, the grid shows the whole day in a scrolling pane the user can
+// zoom with − = + and resize by dragging its bottom edge.
+function timeGridEl(items, days, now, compact = false, view = null) {
+  const base = compact ? 22 : 44
+  const hour = view ? Math.round(base * view.zoom) : base
   const segsByDay = days.map((d) => timedSegments(items, d))
-  const { from, to } = hourRange(segsByDay.flat())
+  const range = hourRange(segsByDay.flat())
+  const { from, to } = view ? { from: 0, to: 24 } : range
   const px = (minutes) => ((minutes - from * 60) / 60) * hour
   const grid = document.createElement("div")
   grid.className = `tg${compact ? " compact" : ""}`
@@ -293,7 +320,30 @@ function timeGridEl(items, days, now, compact = false) {
 
   const head = document.createElement("div")
   head.className = "tg-row tg-head"
-  head.append(document.createElement("div"))
+  const corner = document.createElement("div")
+  if (view) {
+    corner.className = "tg-zoom"
+    for (const [label, dir, name] of [
+      ["−", -1, "Shorter hours"],
+      ["=", 0, "Default hour height"],
+      ["+", 1, "Taller hours"],
+    ]) {
+      const btn = document.createElement("button")
+      btn.textContent = label
+      btn.title = name
+      btn.setAttribute("aria-label", name)
+      btn.addEventListener("click", () => {
+        const zoom = zoomStep(view.zoom, dir)
+        const pane = grid.querySelector(".tg-scroll")
+        view.scroll = keepCenter(pane.scrollTop, pane.clientHeight, zoom / view.zoom)
+        view.zoom = zoom
+        view.save()
+        render()
+      })
+      corner.append(btn)
+    }
+  }
+  head.append(corner)
   for (const day of days) {
     const h = document.createElement("div")
     h.className = `tg-day${sameDay(day, now) ? " today" : ""}`
@@ -375,7 +425,40 @@ function timeGridEl(items, days, now, compact = false) {
     }
     body.append(col)
   })
-  grid.append(body)
+  if (!view) {
+    grid.append(body)
+    return grid
+  }
+  const pane = document.createElement("div")
+  pane.className = "tg-scroll"
+  view.height ??= clampHeight(0.9 * (range.to - range.from) * base)
+  view.scroll ??= range.from * hour
+  pane.style.height = `${view.height}px`
+  pane.addEventListener("scroll", () => {
+    view.scroll = pane.scrollTop
+  })
+  pane.append(body)
+  const bar = document.createElement("div")
+  bar.className = "tg-resize"
+  bar.title = "Drag to resize"
+  bar.addEventListener("pointerdown", (e) => {
+    e.preventDefault()
+    bar.setPointerCapture(e.pointerId)
+    const startY = e.clientY
+    const startH = pane.clientHeight
+    const move = (m) => {
+      view.height = clampHeight(startH + m.clientY - startY)
+      pane.style.height = `${view.height}px`
+    }
+    const up = () => {
+      bar.removeEventListener("pointermove", move)
+      bar.removeEventListener("pointerup", up)
+      view.save()
+    }
+    bar.addEventListener("pointermove", move)
+    bar.addEventListener("pointerup", up)
+  })
+  grid.append(pane, bar)
   return grid
 }
 
@@ -460,8 +543,13 @@ function renderDetail() {
       const h = document.createElement("div")
       h.className = "allweek-head"
       h.textContent = "This week"
-      sec.append(h, timeGridEl(cals, weekDays(new Date()), new Date(), true))
+      const view = Object.assign(allweek, { save: saveAllweek })
+      sec.append(h, timeGridEl(cals, weekDays(new Date()), new Date(), true, view))
       detail.append(sec)
+      const pane = sec.querySelector(".tg-scroll")
+      pane.scrollTop = allweek.scroll
+      // Line the header up with the columns beside the pane's scrollbar.
+      pane.parentElement.style.setProperty("--gutter", `${pane.offsetWidth - pane.clientWidth}px`)
     }
   }
   // On the All tab the week grid shows the calendar, so the list leaves it out.

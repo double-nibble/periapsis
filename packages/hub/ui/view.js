@@ -249,3 +249,25 @@ export function metaRows(meta) {
     .filter(([k]) => k !== "instance")
     .sort(([a], [b]) => a.localeCompare(b))
 }
+
+// Vertical zoom levels for a scrollable time grid, as multiples of its base
+// hour height.
+export const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3]
+
+// The next zoom level in a direction: 1 in, -1 out, 0 back to 1.
+export function zoomStep(zoom, dir) {
+  if (dir === 0) return 1
+  const i = ZOOMS.indexOf(zoom)
+  const at = i === -1 ? ZOOMS.indexOf(1) : i
+  return ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, at + dir))]
+}
+
+// Where to scroll after the content scales by ratio, so the time at the middle
+// of the view stays in the middle.
+export function keepCenter(scrollTop, viewHeight, ratio) {
+  return Math.max(0, (scrollTop + viewHeight / 2) * ratio - viewHeight / 2)
+}
+
+export function clampHeight(px) {
+  return Math.round(Math.min(1200, Math.max(80, px)))
+}
