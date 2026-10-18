@@ -17,6 +17,7 @@ import {
   parseWhen,
   presentTypes,
   sameDay,
+  scrollToNow,
   snoozeOptions,
   startOfWeek,
   timedSegments,
@@ -255,4 +256,10 @@ test("clampHeight keeps the view between 80 and 1200 pixels", () => {
   assert.equal(clampHeight(10), 80)
   assert.equal(clampHeight(5000), 1200)
   assert.equal(clampHeight(250.4), 250)
+})
+
+test("scrollToNow centers the current time and stays within the day", () => {
+  assert.equal(scrollToNow(new Date(2026, 9, 18, 11, 0), 22, 200), 142)
+  assert.equal(scrollToNow(new Date(2026, 9, 18, 1, 0), 22, 200), 0)
+  assert.equal(scrollToNow(new Date(2026, 9, 18, 23, 30), 22, 200), 328)
 })

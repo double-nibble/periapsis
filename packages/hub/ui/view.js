@@ -271,3 +271,10 @@ export function keepCenter(scrollTop, viewHeight, ratio) {
 export function clampHeight(px) {
   return Math.round(Math.min(1200, Math.max(80, px)))
 }
+
+// The scroll offset that puts the current time in the middle of a day-long
+// pane of the given height.
+export function scrollToNow(now, hourPx, viewHeight) {
+  const at = ((now.getHours() * 60 + now.getMinutes()) / 60) * hourPx
+  return Math.round(Math.min(24 * hourPx - viewHeight, Math.max(0, at - viewHeight / 2)))
+}
