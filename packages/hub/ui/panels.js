@@ -76,8 +76,11 @@ function needRow(ctx, item) {
   row.tabIndex = 0
   row.setAttribute("role", "button")
   const main = el("div", "need-main")
-  main.append(el("div", "need-title", item.title))
-  if (item.detail) main.append(el("div", "need-detail", item.detail))
+  // A project or RFC is named by its action, with its own name below.
+  const record = item.kind !== "pr" && item.meta.action
+  main.append(el("div", "need-title", record ? item.meta.action : item.title))
+  const detail = record ? item.title : item.detail
+  if (detail) main.append(el("div", "need-detail", detail))
   const tags = el("div", "tags")
   tags.append(accountTag(ctx, item.account), el("span", "tag", item.meta.instance ?? item.source))
   if (item.group) tags.append(el("span", "tag muted", item.group))
@@ -223,5 +226,76 @@ export function todayPanel(ctx, briefing, who) {
   }
   body.append(list)
   box.append(body)
+  return box
+}
+
+const HEALTH = {
+  onTrack: ["On track", "green"],
+  atRisk: ["At risk", "amber"],
+  offTrack: ["Off track", "red"],
+}
+
+function recordRow(ctx, item, cls, build) {
+  const row = el("div", `${cls}${item.status === "active" ? "" : " hidden"}`)
+  row.tabIndex = 0
+  row.setAttribute("role", "button")
+  build(row)
+  row.addEventListener("click", () => ctx.open(item))
+  row.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") ctx.open(item)
+  })
+  return row
+}
+
+function projectRow(ctx, p) {
+  const m = p.meta
+  return recordRow(ctx, p, "proj", (row) => {
+    const top = el("div", "proj-top")
+    top.append(el("span", "proj-name", p.title))
+    const [label, color] = HEALTH[m.health] ?? ["No update", ""]
+    top.append(el("span", `badge ${color}`, label))
+    if (Number(m.forYou) > 0) top.append(el("span", "badge red", `${m.forYou} for you`))
+    if (m.action) top.append(el("span", "badge amber", m.action))
+    const pct = Math.round(Math.min(1, Math.max(0, Number(m.progress) || 0)) * 100)
+    top.append(el("span", "proj-pct mono", `${pct}%`))
+    const bar = el("div", "proj-bar")
+    const fill = el("div", "proj-fill")
+    fill.style.width = `${pct}%`
+    bar.append(fill)
+    const facts = el("div", "pr-facts")
+    const fact = (text) => text && facts.append(el("span", "fact", text))
+    fact(m.status ?? p.group ?? "")
+    if (m.target) fact(`target ${m.target}`)
+    fact(m.lastUpdate ? `update ${ago(m.lastUpdate)} ago` : "update never")
+    if (m.issues) fact(`${m.issues} issues`)
+    if (m.lead && m.isLead !== "true") fact(`lead ${m.lead}`)
+    facts.append(accountTag(ctx, p.account))
+    row.append(top, bar, facts)
+  })
+}
+
+function docRow(ctx, d) {
+  const m = d.meta
+  return recordRow(ctx, d, "doc-row", (row) => {
+    row.append(el("span", "doc-title", d.title))
+    if (Number(m.toAnswer) > 0) row.append(el("span", "badge red", `${m.toAnswer} to answer`))
+    row.append(
+      el("span", "fact mono", `${m.threads ?? 0} open threads`),
+      el("span", "fact mono", `${m.todos ?? 0} to-dos`),
+    )
+    if (m.edited) row.append(el("span", "fact", `edited ${ago(m.edited)} ago`))
+    row.append(accountTag(ctx, d.account))
+  })
+}
+
+export function projectsPanel(ctx, projects) {
+  const box = panel("Projects", projects.length)
+  for (const p of projects) box.append(projectRow(ctx, p))
+  return box
+}
+
+export function docsPanel(ctx, docs) {
+  const box = panel("RFCs", docs.length)
+  for (const d of docs) box.append(docRow(ctx, d))
   return box
 }

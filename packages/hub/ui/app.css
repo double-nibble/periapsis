@@ -887,3 +887,62 @@ a.tg-allday-ev:hover {
 .today .empty {
   padding: 0;
 }
+
+.proj {
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+}
+.proj.hidden,
+.doc-row.hidden {
+  opacity: 0.5;
+}
+.proj-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.proj-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.proj:hover .proj-name,
+.doc-row:hover .doc-title {
+  color: var(--cyan);
+}
+.proj-pct {
+  margin-left: auto;
+  font-size: 12px;
+}
+.proj-bar {
+  height: 4px;
+  max-width: 160px;
+  border-radius: 2px;
+  background: var(--raised);
+  overflow: hidden;
+}
+.proj-fill {
+  height: 100%;
+  background: var(--cyan);
+}
+.doc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 7px 14px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+.doc-title {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+}
+.doc-row .who-tag {
+  margin-left: auto;
+}
