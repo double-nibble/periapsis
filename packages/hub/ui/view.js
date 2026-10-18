@@ -226,3 +226,26 @@ export function accountColors(accounts) {
   })
   return out
 }
+
+// When a snooze ends: in an hour, this evening (while it is still ahead),
+// tomorrow morning, or next Monday morning.
+export function snoozeOptions(now) {
+  const at = (days, hour) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() + days)
+    d.setHours(hour, 0, 0, 0)
+    return d.getTime()
+  }
+  const out = [{ label: "1 hour", until: now.getTime() + 3_600_000 }]
+  if (now.getHours() < 17) out.push({ label: "This evening", until: at(0, 18) })
+  out.push({ label: "Tomorrow morning", until: at(1, 9) })
+  out.push({ label: "Next week", until: at((8 - now.getDay()) % 7 || 7, 9) })
+  return out
+}
+
+// The meta entries worth showing on an opened item, in a stable order.
+export function metaRows(meta) {
+  return Object.entries(meta ?? {})
+    .filter(([k]) => k !== "instance")
+    .sort(([a], [b]) => a.localeCompare(b))
+}
