@@ -305,12 +305,14 @@ items.
 Open pull requests authored by, and awaiting review from, a GitHub login. Type: `code`.
 
 ```json
-{ "provider": "github", "instance": "mygh", "params": { "token": "<github token>", "login": "<github login>" } }
+{ "provider": "github", "instance": "github", "every": "5m" }
 ```
 
-- `token` — a GitHub token (fine-grained or classic) with read access to the relevant
-  repositories; used for the GraphQL `search` query.
-- `login` — the GitHub username whose open PRs (authored and review-requested) to report.
+It reads with the machine's `gh` login (`gh auth login` once), as that login's user.
+Optional `params` override either:
+
+- `token` — a GitHub token with read access to the relevant repositories.
+- `login` — the GitHub username whose open PRs to report.
 
 #### gcal
 
