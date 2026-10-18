@@ -1,3 +1,4 @@
+import type { Briefing } from "./planner.js"
 import type { Reporter, Row } from "./store.js"
 
 export interface ModelItem {
@@ -44,6 +45,8 @@ export interface Model {
   // Every open PR, including ones the operator has hidden, with its status.
   prs: (ModelItem & { status: string })[]
   stats: Stats
+  // The latest daily plan, and whether a new one is being written.
+  briefing: (Briefing & { running: boolean }) | null
 }
 
 function toItem(row: Row): ModelItem {
@@ -123,6 +126,7 @@ export function buildModel(rows: Row[], now: number, reporters: Reporter[] = [])
     needs,
     prs,
     stats,
+    briefing: null,
     accounts: [...accounts.entries()]
       .map(([account, items]) => ({ account, items: items.sort(byPriority) }))
       .sort((a, b) => a.account.localeCompare(b.account)),
