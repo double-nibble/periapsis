@@ -167,232 +167,221 @@ live outside this repo:
 | `confluence` | `docs` | `doc` | Confluence pages mentioning you, or yours, with open comments |
 | `notion` | `docs` | `doc` | Notion pages with open comments and to-dos |
 
-### github
+### `github`
 
-Open pull requests authored by, and awaiting review from, a GitHub login, one item per PR titled with what to do next: Review for, Fix failing checks, Address requested changes, Reply to, Merge it, Resolve merge conflicts, Update the branch, Request reviewers, Finish the draft, or Chase reviewers after a week in review. A PR with nothing to do keeps its status (In review, Approved, waits on parent, …) and its size, checks, reviewers and open threads. Type: `code`.
+One item per open PR, titled with what to do next: Review for, Fix failing checks, Address
+requested changes, Reply to, Merge it, Resolve merge conflicts, Update the branch, Request
+reviewers, Finish the draft, or Chase reviewers after a week in review. A PR with nothing to
+do shows its status (In review, Approved, waits on parent, …), size, checks, reviewers and
+open threads.
+
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `token` | no | the machine's `gh` login | A GitHub token with read access to the repositories |
+| `login` | no | the token's user | The GitHub username whose PRs to report |
+
+With no params, run `gh auth login` once on the reporter machine.
 
 ```json
-{ "provider": "github", "instance": "github", "every": "5m" }
+{ "instance": "github", "provider": "github", "every": "5m" }
 ```
 
-It reads with the machine's `gh` login (`gh auth login` once), as that login's user.
-Optional `params` override either:
+### `bitbucket`
 
-- `token` — a GitHub token with read access to the relevant repositories.
-- `login` — the GitHub username whose open PRs to report.
+Bitbucket Cloud PRs, with the same next actions as `github`. Bitbucket reports no diff size
+or merge state, so those are left out.
 
-### gcal
-
-Today's Google Calendar events over the API. Source: `calendar`. Sees calendars
-subscribed from other accounts, which `ical` cannot.
-
-```json
-{ "provider": "gcal", "instance": "mycal", "params": { "clientId": "...", "clientSecret": "...", "refreshToken": "...", "calendarId": "primary" } }
-```
-
-- `clientId`, `clientSecret` — an OAuth client (Desktop app) with the Calendar API
-  enabled.
-- `refreshToken` — obtained once via an OAuth consent for the `calendar.readonly` scope.
-  Publish the consent screen to production so the refresh token does not expire.
-- `calendarId` — optional. A single calendar's ID; omit to read every calendar in the
-  account's list, including subscribed ones.
-
-### ical
-
-The month's events from a secret iCal feed, no OAuth, with recurring events expanded
-(daily, weekly, monthly and yearly rules, excluded dates and moved occurrences). Source:
-`calendar`. Covers only calendars you own (the secret iCal address is owner-only).
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `repos` | yes | — | Repositories as `workspace/repo`, e.g. `["acme/api", "acme/web"]` |
+| `token` / `tokenFile` / `tokenEnv` | yes | — | A Bitbucket API token that can read pull requests |
+| `email` | no | — | Your Atlassian email; when set, the token is sent as basic auth instead of a bearer token |
 
 ```json
-{ "provider": "ical", "instance": "mycal", "params": { "icsUrl": "https://calendar.google.com/calendar/ical/.../basic.ics" } }
-```
-
-- `icsUrl` — a private ICS feed URL. In Google Calendar: *Settings → <your calendar> →
-  Integrate calendar → Secret address in iCal format*. Any ICS feed URL also works.
-
-### bitbucket
-
-Open Bitbucket Cloud pull requests you authored or are reviewing, one item per PR titled with
-what to do next, like `github`: review it, fix failing builds, address changes, reply to an
-open comment thread, merge, request reviewers, finish the draft or chase reviewers.
-Bitbucket does not report diff size or merge state, so those are left out. Type: `code`.
-
-```json
-{ "provider": "bitbucket", "instance": "bitbucket", "every": "5m",
+{ "instance": "bitbucket", "provider": "bitbucket", "every": "5m",
   "params": { "repos": ["acme/api", "acme/web"], "tokenFile": "~/.periapsis/bitbucket-token" } }
 ```
 
-- `repos`: the repositories to read, as `workspace/repo`. Bitbucket has no search across a
-  workspace for reviews, so each is listed.
-- `token` (or `tokenFile` / `tokenEnv`): a Bitbucket API token with read access to pull
-  requests, sent as a bearer token. Set `email` to send it with your Atlassian email as
-  basic auth instead.
+### `gcal`
 
-### jira
+This month's events over the Google Calendar API, including calendars subscribed from other
+accounts, which `ical` cannot see.
+
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `clientId`, `clientSecret` | yes | — | An OAuth client (Desktop app) with the Calendar API enabled |
+| `refreshToken` | yes | — | From a one-time consent for the `calendar.readonly` scope; publish the consent screen to production so it does not expire |
+| `calendarId` | no | every calendar in the account's list | One calendar's ID, e.g. `"primary"` |
+
+```json
+{ "instance": "family-cal", "provider": "gcal",
+  "params": { "clientId": "…", "clientSecret": "…", "refreshToken": "…", "calendarId": "primary" } }
+```
+
+### `ical`
+
+This month's events from an ICS feed, with recurring events expanded. No OAuth.
+
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `icsUrl` | yes | — | An ICS feed URL. For Google Calendar: *Settings → your calendar → Integrate calendar → Secret address in iCal format* (owner only) |
+
+```json
+{ "instance": "family-cal", "provider": "ical", "every": "15m",
+  "params": { "icsUrl": "https://calendar.google.com/calendar/ical/…/basic.ics" } }
+```
+
+### `jira`
 
 Jira Cloud issues assigned to you that are not done, one item per issue: in progress or due
-by today first, backlog last. Source: `tickets`. One instance per Jira site.
+by today first, backlog last. One instance per site.
+
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `site` | yes | — | The site, e.g. `"acme.atlassian.net"` |
+| `email` | yes | — | Your Atlassian account email |
+| `token` / `tokenFile` / `tokenEnv` | yes | — | An API token from id.atlassian.com |
+| `jql` | no | `assignee = currentUser() AND statusCategory != Done` | A JQL query to use instead |
 
 ```json
-{ "provider": "jira", "instance": "acme-jira", "every": "5m",
-  "params": { "site": "acme.atlassian.net", "email": "you@example.com", "tokenFile": "~/.periapsis/jira-token" } }
+{ "instance": "acme-jira", "provider": "jira", "every": "5m",
+  "params": { "site": "acme.atlassian.net", "email": "alice@example.com", "tokenFile": "~/.periapsis/atlassian-token" } }
 ```
 
-- `site`: the Jira Cloud site.
-- `email` and `token` (or `tokenFile` / `tokenEnv`): an Atlassian account and an API token
-  from id.atlassian.com, with read access to the issues.
-- `jql`: optional; replaces the default query (`assignee = currentUser() AND
-  statusCategory != Done`).
+### `confluence`
 
-### confluence
+Confluence Cloud pages that mention you, or that you created or edited recently, with their
+open comments. A page asks you to answer when it has open top-level comments from someone
+else, or to read a mention. One instance per site.
 
-Confluence Cloud pages that mention you, or that you created or edited recently, with
-their open comments, shown under Docs. A page asks you to answer when it has open
-top-level inline or footer comments from someone else, or to read a mention. Source:
-`docs`. One instance per Confluence site.
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `site`, `email`, `token` / `tokenFile` / `tokenEnv` | yes | — | As for `jira`; one Atlassian token works for both |
+| `days` | no | `30` | How many days back to look for your pages |
+| `cql` | no | your pages from the last `days` | A CQL query for your pages to use instead; mentions are always read |
 
 ```json
-{ "provider": "confluence", "instance": "acme-wiki", "every": "30m",
-  "params": { "site": "acme.atlassian.net", "email": "you@example.com", "tokenFile": "~/.periapsis/atlassian-token" } }
+{ "instance": "acme-wiki", "provider": "confluence", "every": "30m",
+  "params": { "site": "acme.atlassian.net", "email": "alice@example.com", "tokenFile": "~/.periapsis/atlassian-token" } }
 ```
 
-- `site`, `email` and `token` (or `tokenFile` / `tokenEnv`): as for `jira`; one Atlassian
-  API token works for both.
-- `days`: how far back to look; default 30.
-- `cql`: optional; replaces the query for your pages (mentions are always read).
+### `notion`
 
-### notion
+Notion pages with their unresolved page comments and unchecked top-level to-dos. Comments
+on blocks inside a page are not read.
 
-Notion pages you are working through, shown under Docs: their unresolved page comments
-and unchecked top-level to-dos. With `email`, a discussion whose last comment is not yours
-asks you to answer. Comments on individual blocks inside a page are not read. Source:
-`docs`.
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `token` / `tokenFile` / `tokenEnv` | yes | — | An internal integration secret with read content and read comments capabilities; share the pages, or a parent page, with the integration |
+| `pages` | no | — | Page URLs or ids to watch |
+| `query` | no | `"RFC"` | Without `pages`, watch shared pages whose title contains this |
+| `email` | no | — | Your Notion email; a discussion whose last comment is not yours then asks you to answer. Needs the integration's user email capability |
 
 ```json
-{ "provider": "notion", "instance": "notion", "every": "30m",
-  "params": { "tokenFile": "~/.periapsis/notion-token", "email": "you@example.com" } }
+{ "instance": "notion", "provider": "notion", "every": "30m",
+  "params": { "tokenFile": "~/.periapsis/notion-token", "email": "alice@example.com" } }
 ```
 
-- `token` (or `tokenFile` / `tokenEnv`): an internal integration secret with read content
-  and read comments capabilities; share the pages (or a parent page) with the integration.
-- `pages`: optional page URLs or ids to watch; otherwise pages shared with the integration
-  whose title contains `query` (default `RFC`).
-- `email`: optional; your Notion account's email. Needs the integration's "read user
-  information including email addresses" capability.
+### `linear` and `linear-projects`
 
-### linear and linear-projects
+Linear over its API. `linear` reads the issues assigned to you that are not completed or
+canceled: started or due by today first, backlog last. `linear-projects` reads the projects
+you lead or are a member of that are not completed or canceled, with health, progress,
+target date, lead, the latest update, and how many open issues are yours; a started project
+you lead asks for an update when the last one is over a week old.
 
-Linear over its GraphQL API, without a Claude connector. `linear` reads the issues assigned
-to you that are not completed or canceled: started or due by today first, backlog last.
-Source: `tickets`. `linear-projects` reads the projects you lead or are a member of that are
-not completed or canceled, with health, progress, target date, lead, the latest update as
-the item's body, and how many open issues are yours; a started project you lead asks for an
-update when the last one is over a week old. Source: `projects`.
+| Param | Required | Default | Value |
+| --- | --- | --- | --- |
+| `apiKey` / `apiKeyFile` / `apiKeyEnv` | yes | — | A personal API key from Linear's *Settings → Security & access* |
 
 ```json
-{ "provider": "linear", "instance": "linear", "every": "10m", "params": { "apiKeyFile": "~/.periapsis/linear-key" } },
-{ "provider": "linear-projects", "instance": "linear", "every": "1h", "params": { "apiKeyFile": "~/.periapsis/linear-key" } }
+{ "instance": "linear", "provider": "linear", "every": "10m", "params": { "apiKeyFile": "~/.periapsis/linear-key" } },
+{ "instance": "linear-projects", "provider": "linear-projects", "every": "1h", "params": { "apiKeyFile": "~/.periapsis/linear-key" } }
 ```
-
-- `apiKey` (or `apiKeyFile` / `apiKeyEnv`): a Linear personal API key, from Settings →
-  Security & access, with read access.
-
-### An external provider
-
-A provider of an existing type can live outside this repo. Point an instance at its module;
-set `source` to the type so it groups with the built-ins:
-
-```json
-{ "source": "code", "provider": "bitbucket", "mode": "direct", "module": "./providers/bitbucket.js",
-  "params": { "workspace": "...", "token": "..." } }
-```
-
-The module's default export must be a `Provider` (a `source` string and an async `read`).
 
 ## Agent sources
 
-An agent instance sets `mode: "agent"` and a `source`. A built-in source carries its own
-connector tools and contract:
+An agent instance sets `"mode": "agent"` and a `source`. The built-in sources:
+
+| Source | Connector | Reports | `auto` allowed | Params |
+| --- | --- | --- | --- | --- |
+| `calendar` | Google Calendar | Every event this month, on every calendar you can see | yes | — |
+| `messages` | Slack | DMs and mentions awaiting your reply, one per conversation | yes | — |
+| `email` | Gmail | Unread or important threads, and threads awaiting your reply | yes | — |
+| `tickets` | Linear | Issues assigned to you that are not done | with `deny` | — |
+| `projects` | Linear | Your active projects, and your issues in them due within 2 days | with `deny` | — |
+| `docs` | Notion | Pages with open comment threads and to-dos | with `deny` | `pages`: page URLs to watch; default your recent pages titled `RFC…` |
 
 ```json
-{ "source": "calendar", "instance": "mycal", "mode": "agent" }
+[
+  { "instance": "slack", "source": "messages", "mode": "agent", "every": "5m" },
+  { "instance": "gmail", "source": "email", "mode": "agent", "every": "10m" },
+  { "instance": "rfcs", "source": "docs", "mode": "agent", "every": "1h",
+    "params": { "pages": ["https://www.notion.so/…"] } }
+]
 ```
 
-Built-in: `calendar` (Google Calendar connector), `email` (Gmail), `messages` (Slack),
-`tickets` (Linear issues), `projects` (Linear projects: health, progress, next steps, and
-issues due soon) and `docs` (Notion RFCs: open comment threads and to-dos). `docs` watches
-the pages in `params.pages` when set, else your recent pages titled `RFC…`:
+### An inline agent source
+
+A source defined in `params` needs no code change. When `params` has both `tools` and
+`instructions`, they replace any built-in source of that name.
+
+| Param | Required | Value |
+| --- | --- | --- |
+| `tools` | yes | Connector tool names Claude may use, as `mcp__claude_ai_<Connector>__<tool>`; list read tools only |
+| `instructions` | yes | What to report, one item per what, with what to put in `key`, `title`, `detail`, `url`, `group`, `priority` and `fingerprint` |
+| `kind` | no | The item kind: `task`, `ticket`, `pr`, `project`, `doc`, `message`, `email` or `calendar`. Defaults to the source name when that is a kind, else `task` |
+| `deny` | for `auto` | The connector's write tools, denied outright. On a built-in source, adds to its own list |
 
 ```json
-{ "source": "projects", "instance": "linear", "mode": "agent", "every": "1h" },
-{ "source": "docs", "instance": "rfcs", "mode": "agent", "every": "1h",
-  "params": { "pages": ["https://www.notion.so/…"] } }
-```
-
-A source can also be defined inline, so a new one needs only config — no code change:
-
-```json
-{ "source": "email", "instance": "yahoo", "mode": "agent",
+{ "instance": "yahoo", "source": "yahoo-mail", "mode": "agent", "every": "15m",
   "params": {
     "kind": "email",
     "tools": ["mcp__claude_ai_Yahoo__search", "mcp__claude_ai_Yahoo__get_message"],
-    "instructions": "Report unread mail addressed to the account that needs a reply. key: message id. title: what to do. url: the message link. fingerprint: the message id."
+    "instructions": "Report unread mail addressed to me that needs a reply, one item per message. key: message id. title: what to do. url: the message link. fingerprint: the message id."
   } }
 ```
 
-- `tools` — the connector tool names headless Claude may use.
-- `instructions` — what to report, in the item shape the dashboard renders.
-- `kind` — the item kind (`message`, `email`, `ticket`, …); defaults to the source name
-  when that is itself a kind.
-- `deny` — the connector's write tools, denied explicitly. On a built-in source it adds to
-  the source's own list.
+## A complete example
 
-Headless Claude runs in `dontAsk` mode: any tool outside `tools` is refused. Where an
-organization's managed settings ignore `--allowedTools`, set `"permissionMode": "auto"` on
-the instance; a classifier then approves tool calls, so the deny list is what keeps writes
-out. Auto mode runs only for a source whose write tools are named — built-in `calendar`,
-`email` and `messages` are; for any other, list them in `params.deny`:
+A personal machine reading GitHub and a calendar directly, and Slack and Gmail through
+Claude:
 
 ```json
-{ "source": "calendar", "instance": "work", "mode": "agent", "every": "1h", "permissionMode": "auto" }
+[
+  { "instance": "github", "provider": "github", "every": "5m" },
+  { "instance": "family-cal", "provider": "ical", "every": "15m",
+    "params": { "icsUrl": "https://calendar.google.com/calendar/ical/…/basic.ics" } },
+  { "instance": "slack", "source": "messages", "mode": "agent", "every": "5m" },
+  { "instance": "gmail", "source": "email", "mode": "agent", "every": "15m", "permissionMode": "auto" }
+]
 ```
 
-Changing a built-in source's contract or a direct provider is a change to this repo (a
-PR); a new inline agent source is config only.
+This publishes four sources (`code`, `calendar`, `messages`, `email`), each with one
+instance.
 
 ## Adding a source
 
-**A new provider of an existing type** (for example Bitbucket or GitLab under `code`) needs no change to periapsis:
-
-- *direct* — write a module whose default export is a `Provider` (a `source` string and an
-  async `read` returning items), and point an instance at it with `module`.
-- *agent* — define the source inline in the instance `params` (`tools`, `instructions`,
-  `kind`), gathered through the machine's Claude connectors.
-
-Built-in providers ship in `packages/reporter/src/providers/` (registered in
-`providers/all.ts`); a frequently used external provider or inline agent source can be
-promoted to a built-in with a PR.
-
-**A new type** — a category with no existing item kind (say, a doorbell notification) —
-needs a PR to periapsis: it adds the kind to the taxonomy and its dashboard rendering.
-
-Either way, test with `periapsis-probe`, then add the instance to a reporter's
-`instances.json`.
+- **A provider for an existing source** (say GitLab under `code`): write a module whose
+  default export is a provider and point an instance at it with `module`, or define an
+  inline agent source. No change to periapsis.
+- **A built-in provider**: add it to `packages/reporter/src/providers/` and register it in
+  `providers/all.ts`, in a PR.
+- **A new kind** of item, with its own dashboard rendering: a PR that adds the kind to
+  `packages/core/src/kind.ts` and the hub.
 
 ## Testing a source
 
-`periapsis-probe` runs a set of instances once and prints the per-source body each would
-seal and publish — no broker, no keys. Write a probe config:
+`periapsis-probe` runs instances once and prints what each source would publish, with no
+broker or keys:
 
 ```json
-{ "account": "personal", "instances": [ { "provider": "github", "instance": "github" } ] }
+{ "account": "personal", "instances": [ { "instance": "github", "provider": "github" } ] }
 ```
-
-Run it, with debug logs to watch the collection:
 
 ```
 PERIAPSIS_LOG=debug node packages/reporter/dist/probe.js probe.json
 ```
 
-It prints `{ "<source>": { ...items or failed, note } }` — exactly what the reporter would
-publish to NATS.
+It prints `{ "<source>": { "items": […], "note": "…" } }`, the body the reporter would seal
+and publish.
