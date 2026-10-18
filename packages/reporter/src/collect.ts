@@ -8,6 +8,7 @@ export function toItem(raw: ProviderItem, account: string, source: string, insta
     priority: raw.priority ?? 2,
     title: raw.title,
     detail: raw.detail ?? null,
+    body: raw.body ?? null,
     url: raw.url ?? null,
     group: raw.group ?? null,
     fingerprint: raw.fingerprint,

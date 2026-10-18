@@ -145,6 +145,25 @@ top-level inline or footer comments from someone else, or to read a mention. Sou
 - `days`: how far back to look; default 30.
 - `cql`: optional; replaces the query for your pages (mentions are always read).
 
+### notion
+
+Notion pages you are working through, shown with the RFCs: their unresolved page comments
+and unchecked top-level to-dos. With `email`, a discussion whose last comment is not yours
+asks you to answer. Comments on individual blocks inside a page are not read. Source:
+`docs`.
+
+```json
+{ "provider": "notion", "instance": "notion", "every": "30m",
+  "params": { "tokenFile": "~/.periapsis/notion-token", "email": "you@example.com" } }
+```
+
+- `token` (or `tokenFile` / `tokenEnv`): an internal integration secret with read content
+  and read comments capabilities; share the pages (or a parent page) with the integration.
+- `pages`: optional page URLs or ids to watch; otherwise pages shared with the integration
+  whose title contains `query` (default `RFC`).
+- `email`: optional; your Notion account's email. Needs the integration's "read user
+  information including email addresses" capability.
+
 ### An external provider
 
 A provider of an existing type can live outside this repo. Point an instance at its module;
