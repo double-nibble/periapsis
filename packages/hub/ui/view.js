@@ -243,11 +243,63 @@ export function snoozeOptions(now) {
   return out
 }
 
-// The meta entries worth showing on an opened item, in a stable order.
-export function metaRows(meta) {
-  return Object.entries(meta ?? {})
-    .filter(([k]) => k !== "instance")
-    .sort(([a], [b]) => a.localeCompare(b))
+const META_LABELS = {
+  action: "Next",
+  statusLabel: "Status",
+  state: "State",
+  author: "Author",
+  waitingOn: "Waiting on",
+  checks: "Checks",
+  failing: "Failing",
+  threads: "Open threads",
+  stackedOn: "Stacked on",
+  size: "Size",
+  createdAt: "Opened",
+  health: "Health",
+  progress: "Progress",
+  target: "Target",
+  lead: "Lead",
+  lastUpdate: "Last update",
+  issues: "Open issues",
+  forYou: "For you",
+  toAnswer: "To answer",
+  todos: "To-dos",
+  edited: "Edited",
+  at: "Starts",
+  end: "Ends",
+  cost: "Cost",
+}
+const META_HIDDEN = new Set([
+  "instance",
+  "role",
+  "status",
+  "ref",
+  "repo",
+  "prTitle",
+  "isLead",
+  "allDay",
+])
+const META_TIMES = new Set(["createdAt", "lastUpdate", "edited", "at", "end"])
+
+function metaValue(key, value, now) {
+  if (META_TIMES.has(key) && /^\d{4}-\d\d-\d\dT/.test(value)) {
+    const t = Date.parse(value)
+    if (t <= now) return `${ago(value, now)} ago`
+    return new Date(t).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })
+  }
+  if (key === "progress" && value !== "") return `${Math.round(Number(value) * 100)}%`
+  return value
+}
+
+// An opened item's meta as labeled, readable rows: known fields first in a
+// fixed order, internal fields left out, times shown relative to now.
+export function metaRows(meta, now = Date.now()) {
+  const entries = Object.entries(meta ?? {}).filter(([k, v]) => !META_HIDDEN.has(k) && v !== "")
+  const order = Object.keys(META_LABELS)
+  const rank = (k) => (order.includes(k) ? order.indexOf(k) : order.length)
+  return entries
+    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+    .map(([k, v]) => [META_LABELS[k] ?? k, metaValue(k, v, now)])
 }
 
 // Vertical zoom levels for a scrollable time grid, as multiples of its base

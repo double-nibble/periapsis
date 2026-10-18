@@ -365,6 +365,19 @@ a.tg-allday-ev:hover {
   padding: 1px 4px;
   font-size: 11px;
 }
+.item-dialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  overflow: auto;
+}
+.item-dialog::backdrop {
+  background: rgb(5 9 14 / 70%);
+}
 .dlg-head {
   display: flex;
   align-items: center;
