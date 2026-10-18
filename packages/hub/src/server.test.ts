@@ -135,3 +135,19 @@ test("respond explains why it is unavailable", async () => {
   hub.close()
   store.close()
 })
+
+test("plan asks for a new plan from the dashboard", async () => {
+  const store = openStore(":memory:")
+  let asked = 0
+  const hub = startServer(store, 14796, () => 10, {
+    plan: () => {
+      asked += 1
+    },
+  })
+  await new Promise((r) => setTimeout(r, 50))
+  const r = await post(14796, "/api/plan", {})
+  assert.equal(r.status, 200)
+  assert.equal(asked, 1)
+  hub.close()
+  store.close()
+})

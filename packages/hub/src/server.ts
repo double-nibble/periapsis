@@ -18,6 +18,9 @@ export interface HubServer {
 }
 
 export interface Actions {
+  // The latest plan, and a way to ask for a new one.
+  briefing?: () => Model["briefing"]
+  plan?: () => void
   // Absent when the hub has no signing key; the reason says why.
   respond?: Respond
   respondUnavailable?: string
@@ -63,10 +66,14 @@ export function startServer(
   actions: Actions = {},
 ): HubServer {
   const clients = new Set<import("node:http").ServerResponse>()
-  let model: Model = buildModel(store.list(), now(), store.reporters())
+  const build = (): Model => ({
+    ...buildModel(store.list(), now(), store.reporters()),
+    briefing: actions.briefing?.() ?? null,
+  })
+  let model: Model = build()
 
   function push(): void {
-    model = buildModel(store.list(), now(), store.reporters())
+    model = build()
     const payload = `event: model\ndata: ${JSON.stringify(model)}\n\n`
     for (const res of clients) res.write(payload)
   }
@@ -108,6 +115,13 @@ export function startServer(
   const server = createServer(async (req, res) => {
     const url = req.url ?? "/"
     log.debug("request", { method: req.method, url })
+    if (url === "/api/plan") {
+      if (!fromDashboard(req)) return reply(res, 403, { error: "not from the dashboard" })
+      if (!actions.plan) return reply(res, 503, { error: "planning is turned off" })
+      actions.plan()
+      push()
+      return reply(res, 200, { ok: true })
+    }
     if (url === "/api/act" || url === "/api/respond") {
       await act(req, res, url)
       return
