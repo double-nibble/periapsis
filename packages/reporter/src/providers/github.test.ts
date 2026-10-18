@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { github } from "./github.js"
+import { credentials, github, githubProvider } from "./github.js"
 
 const origFetch = globalThis.fetch
 
@@ -62,8 +62,29 @@ test("failing checks raise priority to 1", async () => {
   }
 })
 
-test("missing token or login throws", async () => {
-  await assert.rejects(() => github.read({ provider: "github", instance: "x", params: {} }))
+test("without a token or a gh login, reading explains how to log in", async () => {
+  const none = githubProvider(async () => {
+    throw new Error("no GitHub token: run `gh auth login` on this machine, or set params.token")
+  })
+  await assert.rejects(() => none.read({ provider: "github", instance: "x" }), /gh auth login/)
+})
+
+test("credentials default to the gh token and that token's user", async () => {
+  const sent: string[] = []
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    sent.push(String((init.headers as Record<string, string>).authorization))
+    return { ok: true, status: 200, json: async () => ({ data: { viewer: { login: "kurt" } } }) }
+  }) as unknown as typeof fetch
+  try {
+    assert.deepEqual(await credentials({}, async () => "gho_x"), { token: "gho_x", login: "kurt" })
+    assert.deepEqual(sent, ["bearer gho_x"])
+    assert.deepEqual(await credentials({ token: "t", login: "me" }, async () => "unused"), {
+      token: "t",
+      login: "me",
+    })
+  } finally {
+    globalThis.fetch = origFetch
+  }
 })
 
 // Integration: runs only with GH_TEST_TOKEN + GH_TEST_LOGIN set.
