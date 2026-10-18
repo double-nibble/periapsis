@@ -295,7 +295,7 @@ export function projectsPanel(ctx, projects) {
 }
 
 export function docsPanel(ctx, docs) {
-  const box = panel("RFCs", docs.length)
+  const box = panel("Docs", docs.length)
   for (const d of docs) box.append(docRow(ctx, d))
   return box
 }

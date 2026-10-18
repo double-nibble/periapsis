@@ -131,7 +131,7 @@ by today first, backlog last. Source: `tickets`. One instance per Jira site.
 ### confluence
 
 Confluence Cloud pages that mention you, or that you created or edited recently, with
-their open comments, shown with the RFCs. A page asks you to answer when it has open
+their open comments, shown under Docs. A page asks you to answer when it has open
 top-level inline or footer comments from someone else, or to read a mention. Source:
 `docs`. One instance per Confluence site.
 
@@ -147,7 +147,7 @@ top-level inline or footer comments from someone else, or to read a mention. Sou
 
 ### notion
 
-Notion pages you are working through, shown with the RFCs: their unresolved page comments
+Notion pages you are working through, shown under Docs: their unresolved page comments
 and unchecked top-level to-dos. With `email`, a discussion whose last comment is not yours
 asks you to answer. Comments on individual blocks inside a page are not read. Source:
 `docs`.
