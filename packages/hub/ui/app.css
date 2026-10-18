@@ -834,3 +834,56 @@ a.tg-allday-ev:hover {
 .badge.red {
   color: var(--red);
 }
+
+.panel-when {
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.replan {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+.replan:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--line);
+}
+.replan:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.today-body {
+  padding: 10px 14px 12px;
+}
+.today-headline {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.today-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.today-steps .who-tag {
+  font-size: 10px;
+  padding: 0 4px;
+}
+.today-error {
+  margin: 0 0 8px;
+  color: var(--amber);
+  font-size: 12px;
+}
+.today .empty {
+  padding: 0;
+}
