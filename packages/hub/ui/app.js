@@ -13,6 +13,7 @@ import {
   monthGrid,
   presentTypes,
   sameDay,
+  scrollToNow,
   snoozeOptions,
   timedSegments,
   urgent,
@@ -432,7 +433,7 @@ function timeGridEl(items, days, now, compact = false, view = null) {
   const pane = document.createElement("div")
   pane.className = "tg-scroll"
   view.height ??= clampHeight(0.9 * (range.to - range.from) * base)
-  view.scroll ??= range.from * hour
+  view.scroll ??= scrollToNow(now, hour, view.height)
   pane.style.height = `${view.height}px`
   pane.addEventListener("scroll", () => {
     view.scroll = pane.scrollTop
