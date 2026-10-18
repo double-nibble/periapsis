@@ -11,6 +11,7 @@ interface GoogleEvent {
   htmlLink?: string
   updated?: string
   start?: { dateTime?: string; date?: string }
+  end?: { dateTime?: string; date?: string }
 }
 
 interface CalendarRef {
@@ -59,6 +60,9 @@ async function fetchEvents(
 
 export function toItem(ev: GoogleEvent, instance: string, calendar?: CalendarRef): ProviderItem {
   const at = ev.start?.dateTime ?? ev.start?.date ?? ""
+  const end = ev.end?.dateTime ?? ev.end?.date
+  // An all-day event has dates (YYYY-MM-DD, end exclusive) rather than times.
+  const allDay = !ev.start?.dateTime && Boolean(ev.start?.date)
   return {
     key: calendar ? `${calendar.id}/${ev.id}` : ev.id,
     kind: "calendar",
@@ -68,7 +72,7 @@ export function toItem(ev: GoogleEvent, instance: string, calendar?: CalendarRef
     url: ev.htmlLink,
     group: calendar?.summary,
     fingerprint: `${ev.updated ?? ""}:${at}`,
-    meta: { at, instance },
+    meta: { at, instance, ...(end ? { end } : {}), ...(allDay ? { allDay: "true" } : {}) },
   }
 }
 

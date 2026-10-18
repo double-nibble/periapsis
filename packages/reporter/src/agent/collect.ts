@@ -15,6 +15,8 @@ interface AgentItem {
   priority?: unknown
   fingerprint?: unknown
   at?: unknown
+  end?: unknown
+  allDay?: unknown
 }
 
 function toItem(
@@ -26,6 +28,7 @@ function toItem(
 ): Item {
   const priority = raw.priority === 1 || raw.priority === 3 ? raw.priority : 2
   const at = typeof raw.at === "string" ? raw.at : undefined
+  const end = typeof raw.end === "string" ? raw.end : undefined
   return {
     key: `${account}:${source}:${instance}/${String(raw.key ?? "")}`,
     kind,
@@ -35,7 +38,12 @@ function toItem(
     url: safeLink(raw.url),
     group: raw.group != null ? String(raw.group) : null,
     fingerprint: String(raw.fingerprint ?? ""),
-    meta: at ? { at, instance } : { instance },
+    meta: {
+      instance,
+      ...(at ? { at } : {}),
+      ...(end ? { end } : {}),
+      ...(raw.allDay === true ? { allDay: "true" } : {}),
+    },
   }
 }
 

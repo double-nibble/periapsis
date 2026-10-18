@@ -6,6 +6,8 @@ export interface RawEvent {
   summary?: string
   url?: string
   start: Date
+  end?: Date
+  allDay: boolean
   stamp: string
 }
 
@@ -24,11 +26,15 @@ function unescapeText(v: string): string {
   return v.replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1")
 }
 
+function isDateOnly(left: string, value: string): boolean {
+  return /VALUE=DATE(?![-T])/.test(left) || /^\d{8}$/.test(value)
+}
+
 function parseDate(left: string, value: string): Date {
   const y = Number(value.slice(0, 4))
   const mo = Number(value.slice(4, 6)) - 1
   const d = Number(value.slice(6, 8))
-  if (/VALUE=DATE(?![-T])/.test(left) || /^\d{8}$/.test(value)) return new Date(y, mo, d)
+  if (isDateOnly(left, value)) return new Date(y, mo, d)
   const h = Number(value.slice(9, 11)) || 0
   const mi = Number(value.slice(11, 13)) || 0
   const s = Number(value.slice(13, 15)) || 0
@@ -41,6 +47,8 @@ export function parseEvents(ics: string): RawEvent[] {
   let summary: string | undefined
   let url: string | undefined
   let start: Date | undefined
+  let end: Date | undefined
+  let allDay = false
   let stamp = ""
   let open = false
   for (const line of unfold(ics)) {
@@ -50,11 +58,13 @@ export function parseEvents(ics: string): RawEvent[] {
       summary = undefined
       url = undefined
       start = undefined
+      end = undefined
+      allDay = false
       stamp = ""
       continue
     }
     if (line === "END:VEVENT") {
-      if (open && start && uid) events.push({ uid, summary, url, start, stamp })
+      if (open && start && uid) events.push({ uid, summary, url, start, end, allDay, stamp })
       open = false
       continue
     }
@@ -67,14 +77,26 @@ export function parseEvents(ics: string): RawEvent[] {
     if (name === "UID") uid = value
     else if (name === "SUMMARY") summary = unescapeText(value)
     else if (name === "URL") url = value
-    else if (name === "DTSTART") start = parseDate(left, value)
+    else if (name === "DTSTART") {
+      start = parseDate(left, value)
+      allDay = isDateOnly(left, value)
+    } else if (name === "DTEND") end = parseDate(left, value)
     else if ((name === "LAST-MODIFIED" || name === "DTSTAMP") && !stamp) stamp = value
   }
   return events
 }
 
+// A local calendar date as YYYY-MM-DD.
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
 export function toItem(ev: RawEvent, instance: string): ProviderItem {
-  const at = ev.start.toISOString()
+  // All-day events carry dates (end exclusive); timed events carry instants.
+  const at = ev.allDay ? ymd(ev.start) : ev.start.toISOString()
+  const end = ev.allDay
+    ? ymd(ev.end ?? new Date(ev.start.getFullYear(), ev.start.getMonth(), ev.start.getDate() + 1))
+    : ev.end?.toISOString()
   return {
     key: ev.uid,
     kind: "calendar",
@@ -83,7 +105,7 @@ export function toItem(ev: RawEvent, instance: string): ProviderItem {
     detail: at,
     url: ev.url,
     fingerprint: `${ev.stamp}:${at}`,
-    meta: { at, instance },
+    meta: { at, instance, ...(end ? { end } : {}), ...(ev.allDay ? { allDay: "true" } : {}) },
   }
 }
 

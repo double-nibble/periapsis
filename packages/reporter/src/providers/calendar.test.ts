@@ -35,3 +35,23 @@ test("toItem namespaces the key by calendar and tags the calendar name", () => {
   assert.equal(item.key, "team@group.calendar.google.com/ev1")
   assert.equal(item.group, "Team")
 })
+
+test("toItem carries the end, and marks an all-day event with dates", () => {
+  const timed = toItem(
+    {
+      id: "a",
+      start: { dateTime: "2026-10-17T09:00:00-05:00" },
+      end: { dateTime: "2026-10-17T10:30:00-05:00" },
+    },
+    "work",
+  )
+  assert.equal(timed.meta?.end, "2026-10-17T10:30:00-05:00")
+  assert.equal(timed.meta?.allDay, undefined)
+  const allDay = toItem(
+    { id: "b", start: { date: "2026-10-16" }, end: { date: "2026-10-18" } },
+    "work",
+  )
+  assert.equal(allDay.meta?.at, "2026-10-16")
+  assert.equal(allDay.meta?.end, "2026-10-18")
+  assert.equal(allDay.meta?.allDay, "true")
+})
