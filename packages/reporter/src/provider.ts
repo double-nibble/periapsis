@@ -28,6 +28,8 @@ export interface ProviderItem {
   priority?: 1 | 2 | 3
   title: string
   detail?: string
+  // Long-form text shown when the item is opened.
+  body?: string
   url?: string
   group?: string
   fingerprint: string
