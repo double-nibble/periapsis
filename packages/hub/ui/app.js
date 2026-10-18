@@ -1,4 +1,12 @@
-import { el, needsPanel, prsPanel, statsTiles, todayPanel } from "./panels.js"
+import {
+  docsPanel,
+  el,
+  needsPanel,
+  projectsPanel,
+  prsPanel,
+  statsTiles,
+  todayPanel,
+} from "./panels.js"
 import {
   MIN_EVENT_MINUTES,
   accountColors,
@@ -459,7 +467,13 @@ function render() {
     statsTiles(model.stats),
     needsPanel(ctx, model.needs.filter(mine)),
   )
-  right.replaceChildren(prsPanel(ctx, model.prs.filter(mine), openGroups))
+  const projects = (model.projects ?? []).filter(mine)
+  const docs = (model.docs ?? []).filter(mine)
+  right.replaceChildren(
+    ...(projects.length ? [projectsPanel(ctx, projects)] : []),
+    prsPanel(ctx, model.prs.filter(mine), openGroups),
+    ...(docs.length ? [docsPanel(ctx, docs)] : []),
+  )
 }
 
 const es = new EventSource("/api/events")
