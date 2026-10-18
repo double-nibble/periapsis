@@ -176,13 +176,13 @@ The installer downloads the reporter, writes this machine's own keys into `~/.pe
 ~/.periapsis/run
 ```
 
-It runs in the foreground; Ctrl-C stops it, and `PERIAPSIS_LOG=debug ~/.periapsis/run` shows
-detail. Within a few minutes — the hub re-reads the registry every five — the account appears
+It runs in the foreground and logs what it loads and when it connects; Ctrl-C stops it, and
+`PERIAPSIS_LOG=debug ~/.periapsis/run` shows more. Within a few minutes — the hub re-reads the registry every five — the account appears
 on the dashboard, labeled by account and locked to its own `status.<account>` subject.
 
-To choose what a reporter watches, put an instances array in `~/.periapsis/instances.json`
-before installing; afterwards, edit `instances` in `~/.periapsis/config.json` and restart the
-reporter. See Providers.
+To choose what a reporter watches, edit `~/.periapsis/instances.json` (an array of
+instances; see Providers) and restart the reporter. It reads the file on every start, and
+logs which instances it loaded.
 
 To remove a reporter and its keys from a Mac:
 

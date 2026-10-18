@@ -166,3 +166,25 @@ test("broker-accounts refuses a registry without the hub", () => {
   enroll(dir, reporterToken(dir, "sub1"))
   assert.throws(() => run(dir, "broker-accounts", "--registry-file", "signed-registry.json"))
 })
+
+test("reporter-enroll references the instances file rather than copying it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "periapsis-"))
+  run(dir, "keygen", "root")
+  writeFileSync(join(dir, "instances.json"), "[]")
+  run(
+    dir,
+    "reporter-enroll",
+    "--account",
+    "sub1",
+    "--root-pub",
+    "root.pub.json",
+    "--broker",
+    "wss://api.example.com",
+    "--registry",
+    "https://status.example.com/registry.json",
+    "--instances",
+    "instances.json",
+  )
+  const cfg = JSON.parse(readFileSync(join(dir, "config.json"), "utf8"))
+  assert.equal(cfg.instances, "instances.json")
+})

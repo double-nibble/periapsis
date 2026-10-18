@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
+import { dirname, relative, resolve } from "node:path"
 import { type Registry, type SignedRegistry, isId, keygen, signRegistry } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
 import {
@@ -29,6 +30,7 @@ function usage(): never {
       "",
       "  reporter-enroll --account A --broker <wss-url> --registry <url>",
       "             --root-pub <root.pub.json> [--instances F] [--every-ms N] [--out F]",
+      "                            (F is referenced from the config and read on each start)",
       "                            On the reporter: generate its own identity and nkey,",
       "                            write a private config.json, and print a public",
       "                            enrollment line for the operator to authorize.",
@@ -247,8 +249,8 @@ function cmdReporterEnroll(args: string[]): void {
     process.stderr.write(`${rootPub} has no signPublic\n`)
     process.exit(1)
   }
-  const instances = f.instances ? (JSON.parse(readFileSync(f.instances, "utf8")) as unknown) : []
-  if (!Array.isArray(instances)) {
+  const listed = f.instances ? (JSON.parse(readFileSync(f.instances, "utf8")) as unknown) : []
+  if (!Array.isArray(listed)) {
     process.stderr.write(`${f.instances} must be a JSON array of instances\n`)
     process.exit(1)
   }
@@ -266,7 +268,9 @@ function cmdReporterEnroll(args: string[]): void {
     signPrivate: secrets.signPrivate,
     boxPrivate: secrets.boxPrivate,
     natsSeed: secrets.natsSeed,
-    instances,
+    // A given instances file is referenced, not copied, so edits to it take
+    // effect when the reporter restarts.
+    instances: f.instances ? relative(dirname(resolve(out)), resolve(f.instances)) : [],
     everyMs: f["every-ms"] ? Number(f["every-ms"]) : 60_000,
   }
   writeFileSync(out, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
