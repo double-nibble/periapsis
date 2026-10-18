@@ -39,3 +39,17 @@ test("collectAgentInstance throws when the agent reports failure", async () => {
     ),
   )
 })
+
+test("collectAgentInstance carries an event's end and all-day flag", async () => {
+  const reply = `\`\`\`json
+{ "items": [
+  { "key": "t", "title": "Sync", "fingerprint": "f", "at": "2026-10-17T09:00:00Z", "end": "2026-10-17T10:00:00Z" },
+  { "key": "d", "title": "Trip", "fingerprint": "f", "at": "2026-10-16", "end": "2026-10-18", "allDay": true }
+] }
+\`\`\``
+  const [timed, allDay] = await collectAgentInstance("sub2", "calendar", inst, fakeRun(reply))
+  assert.equal(timed?.meta.end, "2026-10-17T10:00:00Z")
+  assert.equal(timed?.meta.allDay, undefined)
+  assert.equal(allDay?.meta.at, "2026-10-16")
+  assert.equal(allDay?.meta.allDay, "true")
+})

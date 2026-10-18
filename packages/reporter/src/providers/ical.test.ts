@@ -8,6 +8,7 @@ const ICS = [
   "UID:a@google.com",
   "SUMMARY:Stand-up\\, daily",
   "DTSTART:20261017T140000Z",
+  "DTEND:20261017T153000Z",
   "LAST-MODIFIED:20261001T000000Z",
   "URL:https://cal/a",
   "END:VEVENT",
@@ -35,4 +36,22 @@ test("toItem maps to a calendar item with start as meta.at", () => {
   assert.equal(item.kind, "calendar")
   assert.equal(item.meta?.at, "2026-10-17T14:00:00.000Z")
   assert.equal(item.url, "https://cal/a")
+})
+
+test("toItem carries a timed event's end", () => {
+  const ev = parseEvents(ICS)[0]
+  if (!ev) throw new Error("expected an event")
+  const item = toItem(ev, "work")
+  assert.equal(item.meta?.end, "2026-10-17T15:30:00.000Z")
+  assert.equal(item.meta?.allDay, undefined)
+})
+
+test("toItem gives an all-day event local dates, defaulting to one day", () => {
+  const ev = parseEvents(ICS)[1]
+  if (!ev) throw new Error("expected an event")
+  assert.equal(ev.allDay, true)
+  const item = toItem(ev, "work")
+  assert.equal(item.meta?.at, "2026-10-17")
+  assert.equal(item.meta?.end, "2026-10-18")
+  assert.equal(item.meta?.allDay, "true")
 })
