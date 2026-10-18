@@ -164,6 +164,23 @@ asks you to answer. Comments on individual blocks inside a page are not read. So
 - `email`: optional; your Notion account's email. Needs the integration's "read user
   information including email addresses" capability.
 
+### linear and linear-projects
+
+Linear over its GraphQL API, without a Claude connector. `linear` reads the issues assigned
+to you that are not completed or canceled: started or due by today first, backlog last.
+Source: `tickets`. `linear-projects` reads the projects you lead or are a member of that are
+not completed or canceled, with health, progress, target date, lead, the latest update as
+the item's body, and how many open issues are yours; a started project you lead asks for an
+update when the last one is over a week old. Source: `projects`.
+
+```json
+{ "provider": "linear", "instance": "linear", "every": "10m", "params": { "apiKeyFile": "~/.periapsis/linear-key" } },
+{ "provider": "linear-projects", "instance": "linear", "every": "1h", "params": { "apiKeyFile": "~/.periapsis/linear-key" } }
+```
+
+- `apiKey` (or `apiKeyFile` / `apiKeyEnv`): a Linear personal API key, from Settings →
+  Security & access, with read access.
+
 ### An external provider
 
 A provider of an existing type can live outside this repo. Point an instance at its module;

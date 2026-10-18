@@ -5,6 +5,7 @@ import { confluence } from "./confluence.js"
 import { github } from "./github.js"
 import { ical } from "./ical.js"
 import { jira } from "./jira.js"
+import { linear, linearProjects } from "./linear.js"
 import { notion } from "./notion.js"
 
 // The direct providers available to the reporter and the probe.
@@ -16,4 +17,6 @@ export const PROVIDERS = new Map<string, Provider>([
   ["jira", jira],
   ["confluence", confluence],
   ["notion", notion],
+  ["linear", linear],
+  ["linear-projects", linearProjects],
 ])
