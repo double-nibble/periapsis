@@ -5,6 +5,7 @@ import { toItem } from "./collect.js"
 import type { AccountConfig, InstanceConfig, Provider } from "./provider.js"
 import { loadProvider } from "./providers/load.js"
 import { publishStatus } from "./publish.js"
+import { formatInterval, intervalMs } from "./schedule.js"
 
 const log = createLogger("reporter")
 
@@ -46,53 +47,81 @@ async function collectInstance(
   return result.items.map((raw) => toItem(raw, account, source, inst.instance))
 }
 
-// Collects every instance, routing each by mode (direct provider or agent) and
-// grouping the results by source. A source is failed only when all of its
-// instances failed, so the hub keeps its prior items.
-export async function collectAll(
+// An instance's latest run. A failed run keeps the items of the last good one.
+export interface InstanceState {
+  lastRun: number
+  items: Item[]
+  error: string | null
+}
+
+export function instanceIntervals(config: ReporterConfig): Map<string, number> {
+  const fallback = config.everyMs ?? 60_000
+  return new Map(config.account.instances.map((i) => [i.instance, intervalMs(i, fallback)]))
+}
+
+// Runs the instances that are due and returns a snapshot for every source they
+// belong to. Each snapshot combines the latest result of all that source's
+// instances, so it stays complete however their schedules differ. A source is
+// failed only when every one of its instances is failing, so the hub keeps its
+// prior items.
+export async function collectDue(
   providers: Map<string, Provider>,
   config: ReporterConfig,
+  state: Map<string, InstanceState>,
+  intervals: Map<string, number>,
+  now: number,
   onError: (err: unknown) => void = () => {},
 ): Promise<Map<string, SourceResult>> {
   const account = config.account.account
-  const buckets = new Map<string, { items: Item[]; failures: string[]; count: number }>()
+  const touched = new Set<string>()
   for (const inst of config.account.instances) {
     const source = sourceOf(inst, providers)
     if (!source) {
       onError(new Error(`instance ${inst.instance} has no source`))
       continue
     }
-    const bucket = buckets.get(source) ?? { items: [], failures: [], count: 0 }
-    bucket.count++
+    const prev = state.get(inst.instance)
+    if (prev && now - prev.lastRun < (intervals.get(inst.instance) ?? 0)) continue
     try {
-      bucket.items.push(...(await collectInstance(account, source, inst, providers, config)))
+      const items = await collectInstance(account, source, inst, providers, config)
+      state.set(inst.instance, { lastRun: now, items, error: null })
     } catch (err) {
-      bucket.failures.push(`${inst.instance}: ${(err as Error).message}`)
+      const error = `${inst.instance}: ${(err as Error).message}`
+      state.set(inst.instance, { lastRun: now, items: prev?.items ?? [], error })
     }
-    buckets.set(source, bucket)
+    touched.add(source)
   }
   const out = new Map<string, SourceResult>()
-  for (const [source, b] of buckets) {
-    const failed = b.failures.length === b.count && b.count > 0
+  for (const source of touched) {
+    const insts = config.account.instances.filter((i) => sourceOf(i, providers) === source)
+    const states = insts.flatMap((i) => state.get(i.instance) ?? [])
+    const errors = states.flatMap((s) => (s.error ? [s.error] : []))
     out.set(source, {
-      items: b.items,
-      failed,
-      note: b.failures.length ? b.failures.join("; ") : null,
+      items: states.flatMap((s) => s.items),
+      failed: errors.length === insts.length,
+      note: errors.length ? errors.join("; ") : null,
     })
   }
   return out
 }
 
-// Collects, then seals and publishes one snapshot per source.
-export async function runOnce(
-  broker: Broker,
+// Collects every instance once.
+export function collectAll(
   providers: Map<string, Provider>,
   config: ReporterConfig,
   onError: (err: unknown) => void = () => {},
+): Promise<Map<string, SourceResult>> {
+  return collectDue(providers, config, new Map(), instanceIntervals(config), Date.now(), onError)
+}
+
+// Seals and publishes one snapshot per source.
+async function publishResults(
+  broker: Broker,
+  config: ReporterConfig,
+  results: Map<string, SourceResult>,
+  onError: (err: unknown) => void,
 ): Promise<void> {
   const account = config.account.account
-  log.debug("poll", { account, instances: config.account.instances.length })
-  const results = await collectAll(providers, config, onError)
   const sealer = { account, signPrivate: config.signPrivate, hub: config.hub }
   for (const [source, r] of results) {
     log.debug("collected", { source, items: r.items.length, failed: r.failed })
@@ -109,16 +138,31 @@ export async function runOnce(
   }
 }
 
+// Runs each instance on its own schedule. Throws at once if an instance's
+// interval is invalid.
 export function startReporter(
   broker: Broker,
   providers: Map<string, Provider>,
   config: ReporterConfig,
-  onError?: (err: unknown) => void,
+  onError: (err: unknown) => void = () => {},
 ): { stop(): void } {
-  void runOnce(broker, providers, config, onError)
-  const timer = setInterval(
-    () => void runOnce(broker, providers, config, onError),
-    config.everyMs ?? 60_000,
-  )
+  const intervals = instanceIntervals(config)
+  for (const [instance, ms] of intervals)
+    log.info("schedule", { instance, every: formatInterval(ms) })
+  const state = new Map<string, InstanceState>()
+  let running = false
+  const tick = async () => {
+    if (running) return
+    running = true
+    try {
+      const results = await collectDue(providers, config, state, intervals, Date.now(), onError)
+      await publishResults(broker, config, results, onError)
+    } finally {
+      running = false
+    }
+  }
+  void tick()
+  const every = Math.max(5_000, Math.min(60_000, ...intervals.values()))
+  const timer = setInterval(() => void tick(), every)
   return { stop: () => clearInterval(timer) }
 }

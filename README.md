@@ -256,6 +256,22 @@ are providers of `calendar`. An instance is gathered one of two ways, set by `mo
 
 The sealed item shape and the `status.<account>` flow are identical either way.
 
+Each instance runs on its own schedule, set by `every`: `"30s"`, `"5m"`, `"1h"` (at least
+10 seconds). Without it, a direct instance runs every minute and an agent instance every
+15 minutes, since each agent run is a headless `claude`. Poll a calendar hourly and Slack
+every few minutes, for example:
+
+```json
+[
+  { "instance": "mycal", "source": "calendar", "mode": "agent", "every": "1h" },
+  { "instance": "slack", "source": "messages", "mode": "agent", "every": "5m" }
+]
+```
+
+The reporter logs each instance's schedule when it starts. Instances of the same source may
+run at different rates; each update to that source still carries every instance's latest
+items.
+
 ### Direct providers
 
 #### github
