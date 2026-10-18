@@ -6,6 +6,8 @@ import {
   accountsConf,
   applyEnrollment,
   buildEnrollment,
+  decodeEnrollment,
+  encodeEnrollment,
   natsPublicFromSeed,
   newNatsUser,
   permissionsFor,
@@ -64,4 +66,16 @@ test("accountsConf emits one nkey user per account, sorted, no passwords", () =>
   assert.ok(!conf.includes("password"))
   // hub sorts before sub1
   assert.ok(conf.indexOf("UHUB") < conf.indexOf("USUB1"))
+})
+
+test("an enrollment token is shell-safe and round-trips", () => {
+  const { blob } = buildEnrollment("sub1")
+  const token = encodeEnrollment(blob)
+  assert.match(token, /^[A-Za-z0-9_-]+$/)
+  assert.deepEqual(decodeEnrollment(`  ${token}\n`), blob)
+})
+
+test("decodeEnrollment also accepts the raw JSON", () => {
+  const { blob } = buildEnrollment("sub1")
+  assert.deepEqual(decodeEnrollment(JSON.stringify(blob)), blob)
 })
