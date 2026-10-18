@@ -115,6 +115,20 @@ test("respond hands the item and prompt to the commander", async () => {
   })
   assert.deepEqual(r.body, { id: "id-1" })
   assert.deepEqual(sent, ["a:review it"])
+  const model = JSON.parse((await get(14794, "/api/model")).body)
+  assert.deepEqual(model.commands, [
+    {
+      id: "id-1",
+      at: 10,
+      account: "sub1",
+      source: "github",
+      key: "a",
+      title: "t",
+      prompt: "review it",
+      state: null,
+      cost: null,
+    },
+  ])
   hub.close()
   store.close()
 })

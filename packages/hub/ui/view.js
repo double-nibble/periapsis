@@ -349,3 +349,14 @@ export function sourceState(src, now = Date.now()) {
   if (src.note || now - src.lastSeen > STALE_MS) return "warn"
   return "ok"
 }
+
+// The commands sent about an item, newest first. For a task, that includes the
+// command that started it, whose id is the task's key.
+export function commandsFor(commands, item) {
+  return commands.filter(
+    (c) =>
+      c.account === item.account &&
+      ((c.source === item.source && c.key === item.key) ||
+        (item.source === "tasks" && c.id === item.key)),
+  )
+}

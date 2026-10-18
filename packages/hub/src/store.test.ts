@@ -141,3 +141,27 @@ test("sources record success, partial notes and failures", () => {
   })
   s.close()
 })
+
+test("logs commands and keeps them for 30 days", () => {
+  const s = openStore(":memory:")
+  const sent = (id: string, at: number) => ({
+    id,
+    at,
+    account: "sub1",
+    source: "github",
+    key: "a",
+    title: "t",
+    prompt: "p",
+  })
+  s.logCommand(sent("old", 0))
+  s.logCommand(sent("mid", 2 * 86_400_000))
+  s.logCommand(sent("new", 31 * 86_400_000))
+  assert.deepEqual(
+    s.commands(0).map((c) => c.id),
+    ["new", "mid"],
+  )
+  assert.deepEqual(
+    s.commands(3 * 86_400_000).map((c) => c.id),
+    ["new"],
+  )
+})
