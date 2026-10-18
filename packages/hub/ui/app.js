@@ -1,4 +1,4 @@
-import { el, needsPanel, statsTiles } from "./panels.js"
+import { el, needsPanel, prsPanel, statsTiles } from "./panels.js"
 import {
   MIN_EVENT_MINUTES,
   accountColors,
@@ -26,6 +26,8 @@ const right = document.getElementById("right")
 let model = { accounts: [], schedule: [], needs: [], prs: [], stats: {} }
 let who = "All"
 let calRange = "week"
+// Which PR groups are open, kept across re-renders.
+const openGroups = new Map()
 let colors = {}
 
 const ALLWEEK_KEY = "periapsis.allweek"
@@ -453,7 +455,7 @@ function render() {
       .filter((i) => i.kind === "calendar"),
   )
   left.replaceChildren(statsTiles(model.stats), needsPanel(ctx, model.needs.filter(mine)))
-  right.replaceChildren()
+  right.replaceChildren(prsPanel(ctx, model.prs.filter(mine), openGroups))
 }
 
 const es = new EventSource("/api/events")

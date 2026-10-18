@@ -1,4 +1,4 @@
-import { snoozeOptions } from "./view.js"
+import { ago, snoozeOptions } from "./view.js"
 
 export function el(tag, className, text) {
   const node = document.createElement(tag)
@@ -104,6 +104,85 @@ export function needsPanel(ctx, items) {
     if (band.length === 0) continue
     box.append(el("div", `band ${cls}`, label))
     for (const item of band) box.append(needRow(ctx, item))
+  }
+  return box
+}
+
+const BADGE = {
+  draft: "amber",
+  ready: "green",
+  "ci-failed": "red",
+  changes: "red",
+  conflict: "red",
+  reply: "amber",
+}
+
+function prRow(ctx, pr) {
+  const m = pr.meta
+  const row = el("div", `pr${pr.status === "active" ? "" : " hidden"}`)
+  row.tabIndex = 0
+  row.setAttribute("role", "button")
+  const top = el("div", "pr-top")
+  top.append(el("span", "pr-ref mono", m.ref ?? ""), el("span", "pr-title", m.prTitle ?? pr.title))
+  const facts = el("div", "pr-facts")
+  const fact = (text, cls = "") => facts.append(el("span", `fact ${cls}`, text))
+  fact(m.size ?? "", "mono")
+  if (m.createdAt) fact(`opened ${ago(m.createdAt)} ago`)
+  if (m.role === "reviewer" && m.author) fact(`by ${m.author}`)
+  if (m.stackedOn) fact(`stacked on ${m.stackedOn}`, "mono")
+  if (m.waitingOn) fact(`waiting on ${m.waitingOn}`)
+  if (m.checks === "pass") fact("checks pass")
+  else if (m.checks && m.checks !== "none") fact(m.checks, m.failing ? "red" : "")
+  if (m.threads && m.threads !== "0") fact(`${m.threads} open threads`)
+  if (m.action && m.role === "author") fact(m.action, "action")
+  const side = el("div", "pr-side")
+  side.append(
+    el("span", `badge ${BADGE[m.status] ?? ""}`, m.statusLabel ?? ""),
+    accountTag(ctx, pr.account),
+  )
+  row.append(el("div", "pr-main"), side)
+  row.firstChild.append(top, facts)
+  row.addEventListener("click", () => ctx.open(pr))
+  row.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") ctx.open(pr)
+  })
+  return row
+}
+
+function prGroup(ctx, name, note, prs, open) {
+  const box = el("details", "pr-group")
+  box.open = open
+  const sum = el("summary")
+  sum.append(el("span", "group-name", name), el("span", "group-count mono", String(prs.length)))
+  if (note) sum.append(el("span", "group-note", note))
+  box.append(sum)
+  for (const pr of prs) box.append(prRow(ctx, pr))
+  return box
+}
+
+// Review requests first, then the operator's own PRs by repository; hidden
+// PRs stay listed, dimmed.
+export function prsPanel(ctx, prs, openGroups) {
+  const box = panel("Pull requests", prs.length)
+  if (prs.length === 0) box.append(el("p", "empty", "No open pull requests."))
+  const review = prs.filter((p) => p.meta.role === "reviewer")
+  const byRepo = new Map()
+  for (const pr of prs.filter((p) => p.meta.role !== "reviewer")) {
+    const repo = pr.meta.repo ?? pr.group ?? "other"
+    byRepo.set(repo, [...(byRepo.get(repo) ?? []), pr])
+  }
+  const urgency = (list) => Math.min(...list.map((p) => p.priority))
+  const groups = [
+    ...(review.length ? [["Review requests", "for you", review]] : []),
+    ...[...byRepo]
+      .sort(([a, x], [b, y]) => urgency(x) - urgency(y) || a.localeCompare(b))
+      .map(([repo, list]) => [repo, "repository", list]),
+  ]
+  for (const [name, note, list] of groups) {
+    const sorted = [...list].sort((a, b) => a.priority - b.priority)
+    const group = prGroup(ctx, name, note, sorted, openGroups.get(name) ?? true)
+    group.addEventListener("toggle", () => openGroups.set(name, group.open))
+    box.append(group)
   }
   return box
 }

@@ -184,6 +184,14 @@ To choose what a reporter watches, edit `~/.periapsis/instances.json` (an array 
 instances; see Providers) and restart the reporter. It reads the file on every start, and
 logs which instances it loaded.
 
+### The dashboard
+
+Chips across the top filter everything to one account. Below them, the calendar spans
+the page, with today, week and month views. The left column counts what is open and lists
+everything that needs you, in Now, Soon and When you can bands, with Open, Done, Not now
+and Snooze on each row. The right column lists pull requests: review requests first, then
+your own by repository, each with its size, age, reviewers, checks and open threads.
+
 ### Responding from the dashboard
 
 Click an item to open it. From there you can dismiss it, snooze it, or respond: type what
