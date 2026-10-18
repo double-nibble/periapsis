@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { collectAgentInstance } from "./collect.js"
-import type { RunResult } from "./run.js"
+import type { RunOptions, RunResult } from "./run.js"
 
 const inst = { instance: "mycal", source: "calendar", mode: "agent" as const }
 
@@ -52,4 +52,28 @@ test("collectAgentInstance carries an event's end and all-day flag", async () =>
   assert.equal(timed?.meta.allDay, undefined)
   assert.equal(allDay?.meta.at, "2026-10-16")
   assert.equal(allDay?.meta.allDay, "true")
+})
+
+test("collectAgentInstance runs auto mode with the source's write tools denied", async () => {
+  let seen: RunOptions | undefined
+  const run = (opts: RunOptions) => {
+    seen = opts
+    return Promise.resolve({ result: '{"items":[]}', isError: false, costUsd: null, turns: null })
+  }
+  await collectAgentInstance("sub2", "calendar", { ...inst, permissionMode: "auto" }, run)
+  assert.equal(seen?.permissionMode, "auto")
+  assert.ok(seen?.deny?.includes("mcp__claude_ai_Google_Calendar__create_event"))
+})
+
+test("collectAgentInstance refuses auto mode for a source with no write tools named", async () => {
+  const slack = {
+    instance: "s",
+    source: "messages",
+    mode: "agent" as const,
+    permissionMode: "auto",
+  }
+  await assert.rejects(
+    collectAgentInstance("sub2", "messages", slack, fakeRun("{}")),
+    /params.deny/,
+  )
 })

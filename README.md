@@ -353,6 +353,18 @@ A source can also be defined inline, so a new one needs only config — no code 
 - `instructions` — what to report, in the item shape the dashboard renders.
 - `kind` — the item kind (`message`, `email`, `ticket`, …); defaults to the source name
   when that is itself a kind.
+- `deny` — the connector's write tools, denied explicitly. On a built-in source it adds to
+  the source's own list.
+
+Headless Claude runs in `dontAsk` mode: any tool outside `tools` is refused. Where an
+organization's managed settings ignore `--allowedTools`, set `"permissionMode": "auto"` on
+the instance; a classifier then approves tool calls, so the deny list is what keeps writes
+out. Auto mode runs only for a source whose write tools are named — built-in `calendar` and
+`email` are; for any other, list them in `params.deny`:
+
+```json
+{ "source": "calendar", "instance": "work", "mode": "agent", "every": "1h", "permissionMode": "auto" }
+```
 
 Changing a built-in source's contract or a direct provider is a change to this repo (a
 PR); a new inline agent source is config only.
