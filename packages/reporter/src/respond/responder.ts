@@ -6,11 +6,24 @@ import { type RunResult, type SpawnOptions, spawnClaude } from "../agent/run.js"
 // How this machine runs responses. Absent means it accepts none.
 const log = createLogger("reporter.respond")
 
+// Which items a machine responds about. Each list that is set must match.
+export interface RespondAllow {
+  sources?: string[]
+  kinds?: string[]
+  instances?: string[]
+  // Prefixes the item's URL must start with.
+  urls?: string[]
+}
+
 export interface RespondConfig {
   cwd?: string
   permissionMode?: string
   model?: string
   timeoutMinutes?: number
+  allow?: RespondAllow
+  // Claude's tool rules for every response.
+  allowedTools?: string[]
+  disallowedTools?: string[]
 }
 
 export type Spawn = (args: string[], prompt: string, opts: SpawnOptions) => Promise<RunResult>
@@ -27,6 +40,8 @@ export interface Task {
   result: string | null
   costUsd: number | null
   updatedAt: number
+  // Why respond.allow refused this task's thread.
+  refused?: string
 }
 
 interface Saved {
@@ -43,9 +58,27 @@ export function respondArgs(config: RespondConfig, session?: string): string[] {
   if (!MODES.includes(mode))
     throw new Error(`respond.permissionMode must be one of ${MODES.join(", ")}`)
   const args = ["-p", "--output-format", "json", "--permission-mode", mode]
+  if (config.allowedTools?.length) args.push("--allowedTools", config.allowedTools.join(","))
+  if (config.disallowedTools?.length)
+    args.push("--disallowedTools", config.disallowedTools.join(","))
   if (session) args.push("--resume", session)
   if (config.model) args.push("--model", config.model)
   return args
+}
+
+// Why respond.allow refuses an item, or null when it accepts it.
+export function refusal(allow: RespondAllow | undefined, item: Command["item"]): string | null {
+  if (!allow) return null
+  const checks: [string, string[] | undefined, (v: string) => boolean][] = [
+    ["sources", allow.sources, (v) => v === item.source],
+    ["kinds", allow.kinds, (v) => v === item.kind],
+    ["instances", allow.instances, (v) => v === item.meta.instance],
+    ["urls", allow.urls, (v) => Boolean(item.url?.startsWith(v))],
+  ]
+  for (const [name, list, ok] of checks)
+    if (list && !list.some(ok))
+      return `This machine does not respond about this item: respond.allow.${name} accepts only ${list.join(", ")}.`
+  return null
 }
 
 export function respondPrompt(cmd: Command): string {
@@ -121,19 +154,27 @@ export class Responder {
       costUsd: null,
       updatedAt: this.now(),
     }
+    // A follow-up on a task is about the item that started its thread.
+    const refused = from ? (from.refused ?? null) : refusal(this.config?.allow, cmd.item)
+    if (refused) task.refused = refused
     this.saved.tasks.unshift(task)
     void this.save()
-    this.queue = this.queue.then(() => this.run(task, cmd))
+    this.queue = this.queue.then(() => this.run(task, cmd, refused))
     return this.queue
   }
 
-  private async run(task: Task, cmd: Command): Promise<void> {
+  private async run(task: Task, cmd: Command, refused: string | null): Promise<void> {
     if (!this.config) {
       this.update(
         task,
         "failed",
         "This machine does not accept responses: its config has no respond section.",
       )
+      return this.save()
+    }
+    if (refused) {
+      log.info("refused", { id: cmd.id, item: cmd.item.key })
+      this.update(task, "failed", refused)
       return this.save()
     }
     this.update(task, "running", null)

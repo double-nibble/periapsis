@@ -321,6 +321,25 @@ Written by the installer.
 - `cwd` — where Claude starts (default `~`).
 - `permissionMode` — Claude's permission mode for the run (default `auto`).
 - `model`, `timeoutMinutes` — optional; the timeout defaults to 30 minutes.
+- `allow` — optional; limits which items the machine responds about. Each list that is set
+  must match: `sources`, `kinds`, `instances` (the item's instance name), and `urls` (prefixes
+  the item's link must start with). A prompt about any other item, or a follow-up on one,
+  comes back as a failed task saying why, and Claude does not run. Without `allow`, any item
+  is accepted.
+- `allowedTools`, `disallowedTools` — optional; Claude's tool rules for every response, as for
+  `claude --allowedTools` and `--disallowedTools`. With `permissionMode` `dontAsk`, only the
+  allowed tools run.
+
+A machine that only reviews pull requests in one organization, without changing anything:
+
+```json
+"respond": {
+  "cwd": "~/code",
+  "permissionMode": "dontAsk",
+  "allow": { "kinds": ["pr"], "urls": ["https://github.com/acme/"] },
+  "allowedTools": ["Read", "Grep", "Glob", "Bash(gh pr view:*)", "Bash(gh pr diff:*)"]
+}
+```
 
 ### Sources: `~/.periapsis/instances.json`
 
