@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # periapsis reporter installer (macOS). This machine generates its own identity
-# and NATS nkey, installs a launchd agent, and prints an enrollment line for the
-# operator to authorize. No password or private key is ever downloaded.
+# and NATS nkey, writes ~/.periapsis/run to start the reporter in the foreground,
+# and prints an enrollment token for the operator to authorize. No password or
+# private key is ever downloaded.
 #
 #   curl -fsSL https://status.<your-domain>/install.sh | bash -s -- https://status.<your-domain> <account>
 #
@@ -12,13 +13,20 @@
 set -euo pipefail
 
 DIR="$HOME/.periapsis"
-PLIST="$HOME/Library/LaunchAgents/com.periapsis.reporter.plist"
+# Earlier versions ran the reporter as a launchd agent; remove it if present.
+OLD_PLIST="$HOME/Library/LaunchAgents/com.periapsis.reporter.plist"
+remove_old_agent() {
+  if [ -f "$OLD_PLIST" ]; then
+    launchctl unload "$OLD_PLIST" >/dev/null 2>&1 || true
+    rm -f "$OLD_PLIST"
+    echo "Removed the launchd agent from an earlier install."
+  fi
+}
 
 if [ "${1:-}" = "--uninstall" ]; then
-  launchctl unload "$PLIST" >/dev/null 2>&1 || true
-  rm -f "$PLIST"
+  remove_old_agent
   rm -rf "$DIR"
-  echo "Removed the reporter agent and $DIR (including this machine's keys)."
+  echo "Removed $DIR (including this machine's keys)."
   echo "Installing again generates new keys, which need enrolling again."
   exit 0
 fi
@@ -65,37 +73,28 @@ else
   rm -f "$DIR/enroll.err"
 fi
 
-NODE_BIN=$(command -v node)
-mkdir -p "$HOME/Library/LaunchAgents"
-cat >"$PLIST" <<PLIST_EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>com.periapsis.reporter</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$NODE_BIN</string>
-    <string>$DIR/reporter.mjs</string>
-    <string>$DIR/config.json</string>
-  </array>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>ThrottleInterval</key><integer>30</integer>
-  <key>StandardOutPath</key><string>$DIR/reporter.log</string>
-  <key>StandardErrorPath</key><string>$DIR/reporter.log</string>
-</dict></plist>
-PLIST_EOF
+remove_old_agent
 
-launchctl unload "$PLIST" >/dev/null 2>&1 || true
-launchctl load "$PLIST"
+cat >"$DIR/run" <<RUN_EOF
+#!/bin/sh
+# Start this machine's periapsis reporter in the foreground; Ctrl-C stops it.
+exec node "$DIR/reporter.mjs" "$DIR/config.json"
+RUN_EOF
+chmod +x "$DIR/run"
 
 echo
-echo "Installed and running (logs: $DIR/reporter.log)."
+echo "Installed in $DIR."
 if [ -n "$BLOB" ]; then
   echo
   echo "Send this enrollment token to your operator to authorize this reporter:"
   echo
   echo "  $BLOB"
   echo
-  echo "Once it is enrolled and the broker has the new accounts.conf, it connects within a few minutes."
+  echo "Once it is enrolled and the broker has the new accounts.conf, start the reporter:"
+else
+  echo "Start the reporter:"
 fi
+echo
+echo "  $DIR/run"
+echo
+echo "It runs in the foreground (Ctrl-C to stop); set PERIAPSIS_LOG=debug for detail."

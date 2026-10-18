@@ -1,24 +1,15 @@
 # periapsis
 
-Observe-first monitoring for a fleet of autonomous agents you operate. Each agent
-reports its own status outbound to a central hub; you watch the whole fleet from one
-dashboard. Commands flow back only on request, signed, and only for actions a reporter
-has opted into.
+Observe-first monitoring for a fleet of autonomous agents you operate. Each agent reports its own status outbound to a central hub; you watch the whole fleet from one dashboard. Commands flow back only on request, signed, and only for actions a reporter has opted into.
 
-Every reporter knows only its own identity and the hub address — never its peers. The
-hub is a sink and a renderer: it never reaches into a worker. Status items are labeled
-by account, so one view aggregates many agents without conflating them.
+Every reporter knows only its own identity and the hub address — never its peers. The hub is a sink and a renderer: it never reaches into a worker. Status items are labeled by account, so one view aggregates many agents without conflating them.
 
 ## Security model
 
 - Reporters publish; the hub subscribes. No inbound surface on a worker.
-- Every message is encrypted and signed end to end (x25519 + ed25519); the broker is a
-  dumb pipe that cannot read or forge messages.
-- Trust is anchored by one root key you hold. A registry of public keys, signed by that
-  root key and served over HTTPS, distributes identities. Private keys never leave the
-  machine that owns them.
-- Each account authenticates to the broker with its own NATS nkey; possession of a locally
-  generated seed is the only credential, so no password is stored or transmitted.
+- Every message is encrypted and signed end to end (x25519 + ed25519); the broker is a dumb pipe that cannot read or forge messages.
+- Trust is anchored by one root key you hold. A registry of public keys, signed by that root key and served over HTTPS, distributes identities. Private keys never leave the machine that owns them.
+- Each account authenticates to the broker with its own NATS nkey; possession of a locally generated seed is the only credential, so no password is stored or transmitted.
 - Broker traffic is a secure WebSocket on 443, so it looks like ordinary HTTPS.
 
 ## Layout
@@ -30,32 +21,42 @@ by account, so one view aggregates many agents without conflating them.
 - `packages/cli` — operator commands: keygen, enrollment, registry signing, broker auth.
 - `deploy/` — Terraform for the broker and registry.
 
-## Infrastructure
+# Getting Started
+
+Clone and build:
+
+```bash
+git clone git@github.com:double-nibble/periapsis.git
+cd periapsis
+pnpm install && pnpm build
+```
+
+## Bootstrapping
 
 Setup involves three kinds of machine, which may be the same box:
 
-- the **operator workstation** holds `root.key` and your AWS credentials, and is the only
-  place anything is signed;
-- the **hub machine** runs the dashboard;
-- each **reporter Mac** runs one account's reporter.
+* **Operator workstation**: Holds `root.key` and your AWS credentials, and is the only place anything is signed
+* **Hub machine**: Runs the dashboard for orchestration
+* **Reporter machine**: Runs a reporter that's being orchestrated
 
-No machine ever receives another machine's private key. Everything in this section runs on
-the operator workstation, once. You need a domain in Route53 and its hosted zone id.
+The most likely configuration is that the operator workstation and hub machine are the same machine.
 
-Build and, if you authenticated to AWS with `aws login`, export the bridge profile:
-
-```
-pnpm install && pnpm build
-export AWS_PROFILE=terraform-login
-```
+No machine ever receives another machine's private key. Everything in this section runs on the operator workstation, once. You need a domain in Route53 and its hosted zone ID.
 
 Apply the broker + registry, then export the outputs:
 
-```
+```bash
+## If you use `aws login` for creds, you might need this bridge:
+# export AWS_PROFILE_OLD=$AWS_PROFILE  # Save you current profile 
+# export AWS_PROFILE=terraform-login   # Setup the Terraform bridge
+
 cd deploy
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: domain, zone_id, allowed_cidrs, letsencrypt_email,
-# vpc_id, and a public subnet_id (route to an internet gateway, auto-assigned public IP)
+```
+
+Edit `terraform.tfvars` and populate your Route53 managed DNS `domain`, its `zone_id`, `allowed_cidrs` that can connect to the broker, a `letsencrypt_email` address for creating certificates, your `vpc_id`, and a public `subnet_id` that has a route to an internet gateway with auto-assigned public IP configured.
+
+```bash
 terraform init
 terraform apply
 export REGISTRY_BUCKET="$(terraform output -raw registry_bucket)"
@@ -63,97 +64,99 @@ export REGISTRY_URL="$(terraform output -raw registry_url)"
 export BROKER_INSTANCE_ID="$(terraform output -raw broker_instance_id)"
 export BROKER_URL="$(terraform output -raw broker_url)"
 cd ..
+
+## If you used the bridge, reset your setup
+# export AWS_PROFILE=$AWS_PROFILE_OLD
+# export AWS_PROFILE_OLD=
 ```
 
-Verify the broker is up (NATS over secure WebSocket on 443):
+Generate the root key:
 
-```
-node packages/cli/dist/cli.js broker-check "$BROKER_URL"
-```
-
-Generate the root key — the fleet's trust anchor; back up `root.key` and keep it offline:
-
-```
+```bash
 node packages/cli/dist/cli.js keygen root
 ```
 
-The hub and the reporters are not keyed here: each generates its own identity and NATS
-credential on its own machine. Publish the installer and its public bootstrap to the status
-site:
+The hub and the reporters are not keyed here: each generates its own identity and NATS credential on its own machine. Publish the installer and its public bootstrap to the status site:
 
-```
+```bash
 pnpm bundle
 node packages/cli/dist/cli.js bootstrap \
-  --broker "$BROKER_URL" --registry "$REGISTRY_URL" --root-pub root.pub.json
-aws s3 cp scripts/install.sh        "s3://$REGISTRY_BUCKET/install.sh"     --content-type text/x-shellscript
-aws s3 cp dist-bundle/periapsis.mjs "s3://$REGISTRY_BUCKET/periapsis.mjs"  --content-type text/javascript
-aws s3 cp dist-bundle/reporter.mjs  "s3://$REGISTRY_BUCKET/reporter.mjs"   --content-type text/javascript
-aws s3 cp bootstrap.json            "s3://$REGISTRY_BUCKET/bootstrap.json" --content-type application/json
+  --broker "${BROKER_URL}" \
+  --registry "${REGISTRY_URL}" \
+  --root-pub root.pub.json
+aws s3 cp scripts/install.sh "s3://${REGISTRY_BUCKET}/install.sh" --content-type text/x-shellscript
+aws s3 cp dist-bundle/periapsis.mjs "s3://${REGISTRY_BUCKET}/periapsis.mjs" --content-type text/javascript
+aws s3 cp dist-bundle/reporter.mjs "s3://${REGISTRY_BUCKET}/reporter.mjs" --content-type text/javascript
+aws s3 cp bootstrap.json "s3://${REGISTRY_BUCKET}/bootstrap.json" --content-type application/json
+aws s3 cp root.pub.json "s3://${REGISTRY_BUCKET}/root.pub.json" --content-type application/json
 ```
 
 `bootstrap.json` holds only public values (the broker and registry URLs and the root signing
 key). No secret is ever published or downloaded.
 
-## Enrollment
-
-Every account — the hub and each reporter — generates its keys on its own machine and prints
-a one-line **enrollment token** carrying only public values. You authorize a token on the
-operator workstation:
-
-```
-packages/cli/scripts/enroll.sh root.key "$REGISTRY_BUCKET" <token>
-```
-
-The published registry is the fleet's only record. `enroll.sh` reads it from S3, verifies it
-under the root key, adds the account's identity and NATS nkey, re-signs it, uploads it, and
-writes `accounts.conf`: the broker's authorization for every enrolled nkey. Enrolling an
-account again (say, after reinstalling) replaces its keys. Nothing else is kept locally, so
-you can enroll from any machine that has `root.key` and AWS access.
-
-After enrolling, install `accounts.conf` on the broker:
-
-```
-aws ssm start-session --target "$BROKER_INSTANCE_ID"
-#   sudo tee /etc/nats/accounts.conf >/dev/null <<'CONF'
-#   # paste the contents of accounts.conf here
-#   CONF
-#   sudo systemctl restart nats
-#   exit
-```
-
-Authentication is by nkey: possession of a locally generated seed is the only credential, so
-no password is ever stored or transmitted.
-
 ## Hub
 
-On the **hub machine**, build, generate the hub's key, and write its config. Copy
-`root.pub.json` (public) over from the workstation first. `hub-config` writes
-`hub-config.json` (the hub's box key and its own NATS nkey seed — it stays here) and prints
-the hub's enrollment token:
+This is your dashboard machine. You'll need the repository copied and built and copy `root.pub.json` over.
 
-```
-export BROKER_URL="wss://api.<your-domain>"
-export REGISTRY_URL="https://status.<your-domain>/registry.json"
+If it's the same machine, you can skip this and go to the keygen step.
+
+```bash
+git clone git@github.com:double-nibble/periapsis.git
+cd periapsis
 pnpm install && pnpm build
+export DOMAIN="<your-domain>"
+export BROKER_URL="wss://api.${DOMAIN}"
+export REGISTRY_URL="https://status.${DOMAIN}/registry.json"
+curl -fsSLO "https://status.${DOMAIN}/root.pub.json"
+```
+
+The `hub-config` writes `hub-config.json` (the hub's box key and its own NATS nkey seed) and prints the hub enrollment. Pipe it straight into `enroll`:
+
+```bash
 node packages/cli/dist/cli.js keygen hub
 node packages/cli/dist/cli.js hub-config \
-  --hub-key hub.key --root-pub root.pub.json \
-  --broker "$BROKER_URL" --registry "$REGISTRY_URL"
+  --hub-key hub.key \
+  --root-pub root.pub.json \
+  --broker "${BROKER_URL}" \
+  --registry "${REGISTRY_URL}" > hub.token
 ```
 
-On the **operator workstation**, enroll that token and install `accounts.conf` on the broker
-(Enrollment, above). If the hub runs on the workstation, pipe it straight through:
-`… hub-config … | packages/cli/scripts/enroll.sh root.key "$REGISTRY_BUCKET"`.
+The output is the token to be enrolled, redirected to `hub.token`. If your operator workstation and hub will be the same machine, you can do the enrollment here. Otherwise, copy that `hub.token` file to the operator machine.
 
-Then, on the hub machine, run it:
+## Enrollment
 
+Every piece (the hub and each reporter) proves itself with keys it generates locally, and prints a one-line **enrollment** carrying only public values. You authorize a token on the operator workstation (the workstation with the `root.key`):
+
+```bash
+packages/cli/scripts/enroll.sh root.key "${REGISTRY_BUCKET}" < hub.token
 ```
+
+Now we'll update the broker's nkey authorization and reload it. This is something you'll need to do for each new enrollment.
+
+```bash
+cat accounts.conf | pbcopy
+# Connect to the broker to write the file
+aws ssm start-session --target "${BROKER_INSTANCE_ID}"
+sudo tee /etc/nats/accounts.conf >/dev/null <<'CONF'
+# paste the contents of accounts.conf here
+CONF
+sudo systemctl restart nats
+exit
+```
+
+Authentication is by nkey: possession of a locally generated seed is the only credential, so no password is ever stored or transmitted.
+
+## Starting Hub
+
+Now that the broker is running and the hub has been authorized, you can start the hub:
+
+```bash
 node packages/hub/dist/main.js hub-config.json
 ```
 
 The hub serves the dashboard at `http://127.0.0.1:4747`. From another shell:
 
-```
+```bash
 curl -sS http://127.0.0.1:4747/api/model
 ```
 
@@ -161,33 +164,31 @@ It returns the aggregated fleet model as JSON, empty until a reporter publishes.
 
 ## Reporters
 
-On each **reporter Mac**, one per account. Nothing is copied to the machine and no password
-is typed:
+One reporter per worker, on that worker's Mac. Nothing is copied to the machine and no password is typed. It generates its own identity and NATS credential and prints an enrollment line:
 
+```bash
+export DOMAIN="<your domain>"
+curl -fsSL "https://status.${DOMAIN}/install.sh" | bash -s -- "https://status.${DOMAIN}" <worker_name>
 ```
-curl -fsSL https://status.<your-domain>/install.sh | bash -s -- https://status.<your-domain> sub1
+
+The installer downloads the reporter, writes this machine's own keys into `~/.periapsis/config.json`, and prints an enrollment token. Send the token to the operator, who enrolls it on the workstation and installs the new `accounts.conf` on the broker (Enrollment, above). Then start the reporter, like the hub, in a shell:
+```
+~/.periapsis/run
 ```
 
-The installer downloads the reporter, writes this machine's own keys into
-`~/.periapsis/config.json`, installs a launchd agent, and prints an enrollment token. Send the
-token to the operator, who enrolls it on the workstation and installs the new
-`accounts.conf` on the broker (Enrollment, above).
-
-The account appears on the dashboard within a few minutes — the hub re-reads the registry
-every five minutes — labeled by account and locked to its own `status.<account>` subject.
+It runs in the foreground; Ctrl-C stops it, and `PERIAPSIS_LOG=debug ~/.periapsis/run` shows
+detail. Within a few minutes — the hub re-reads the registry every five — the account appears
+on the dashboard, labeled by account and locked to its own `status.<account>` subject.
 
 To choose what a reporter watches, put an instances array in `~/.periapsis/instances.json`
-before installing (or edit it and re-run the installer). See Providers.
+before installing; afterwards, edit `instances` in `~/.periapsis/config.json` and restart the
+reporter. See Providers.
 
-Until it is enrolled, the reporter cannot connect; launchd restarts it every 30 seconds, so it
-connects shortly after the broker is updated. To remove a reporter and its keys from a Mac:
+To remove a reporter and its keys from a Mac:
 
 ```
 curl -fsSL https://status.<your-domain>/install.sh | bash -s -- --uninstall
 ```
-
-Do this before wiping `~/.periapsis` by hand; otherwise the launchd agent keeps restarting a
-reporter that is no longer there.
 
 ## Develop
 
