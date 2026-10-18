@@ -1,12 +1,15 @@
 import {
+  MIN_EVENT_MINUTES,
   accountColors,
   eventSpan,
   eventsOn,
   filterByType,
+  hourRange,
   itemsFor,
   monthGrid,
   presentTypes,
   sameDay,
+  timedSegments,
   urgent,
   weekDays,
 } from "./view.js"
@@ -162,6 +165,85 @@ function eventChip(item) {
   return chip
 }
 
+// A Google Calendar style grid: day headers, then a time axis with each timed
+// event sized by its length and overlaps side by side.
+function timeGridEl(items, days, now, compact = false) {
+  const hour = compact ? 22 : 44
+  const segsByDay = days.map((d) => timedSegments(items, d))
+  const { from, to } = hourRange(segsByDay.flat())
+  const px = (minutes) => ((minutes - from * 60) / 60) * hour
+  const grid = document.createElement("div")
+  grid.className = `tg${compact ? " compact" : ""}`
+  grid.style.setProperty("--days", String(days.length))
+  grid.style.setProperty("--hour", `${hour}px`)
+
+  const head = document.createElement("div")
+  head.className = "tg-row tg-head"
+  head.append(document.createElement("div"))
+  for (const day of days) {
+    const h = document.createElement("div")
+    h.className = `tg-day${sameDay(day, now) ? " today" : ""}`
+    const dow = document.createElement("span")
+    dow.className = "tg-dow"
+    dow.textContent = DOW[day.getDay()]
+    const num = document.createElement("span")
+    num.className = "tg-num"
+    num.textContent = String(day.getDate())
+    h.append(dow, num)
+    head.append(h)
+  }
+  grid.append(head)
+
+  const body = document.createElement("div")
+  body.className = "tg-row tg-body"
+  body.style.height = `${(to - from) * hour}px`
+  const axis = document.createElement("div")
+  axis.className = "tg-axis"
+  for (let h = from + 1; h < to; h++) {
+    const t = document.createElement("span")
+    t.className = "tg-hour"
+    t.style.top = `${(h - from) * hour}px`
+    t.textContent = `${String(h).padStart(2, "0")}:00`
+    axis.append(t)
+  }
+  body.append(axis)
+  days.forEach((day, i) => {
+    const col = document.createElement("div")
+    col.className = `tg-col${sameDay(day, now) ? " today" : ""}`
+    for (const s of segsByDay[i]) {
+      const span = eventSpan(s.item)
+      const when = `${hhmm(span.start)} – ${hhmm(span.end)}`
+      const ev = linkOrBlock(s.item, `tg-ev ${colorClass(s.item)}`)
+      ev.style.top = `${px(s.startMin)}px`
+      ev.style.height = `${(Math.max(s.endMin - s.startMin, MIN_EVENT_MINUTES) / 60) * hour - 2}px`
+      ev.style.left = `calc(${(s.col / s.cols) * 100}% + 1px)`
+      ev.style.width = `calc(${100 / s.cols}% - 3px)`
+      const title = document.createElement("span")
+      title.className = "tg-ev-title"
+      title.textContent = s.item.title
+      ev.append(title)
+      if (!compact) {
+        const time = document.createElement("span")
+        time.className = "tg-ev-time"
+        time.textContent = when
+        ev.append(time)
+      }
+      ev.title = `${s.item.title}\n${when} · ${s.item.account}`
+      col.append(ev)
+    }
+    const minute = now.getHours() * 60 + now.getMinutes()
+    if (sameDay(day, now) && minute >= from * 60 && minute <= to * 60) {
+      const line = document.createElement("div")
+      line.className = "tg-now"
+      line.style.top = `${px(minute)}px`
+      col.append(line)
+    }
+    body.append(col)
+  })
+  grid.append(body)
+  return grid
+}
+
 function calSwitch() {
   const bar = document.createElement("div")
   bar.className = "cal-switch"
@@ -186,39 +268,15 @@ function dayCell(items, day, now, className) {
   return cell
 }
 
-function weekGridEl(items, now, extra = "") {
-  const grid = document.createElement("div")
-  grid.className = `cal-week${extra}`
-  for (const day of weekDays(now)) {
-    const cell = dayCell(items, day, now, "cal-day")
-    const h = document.createElement("div")
-    h.className = "cal-dayhead"
-    h.textContent = `${DOW[day.getDay()]} ${day.getDate()}`
-    cell.prepend(h)
-    grid.append(cell)
-  }
-  return grid
-}
-
 function renderCalendar(items) {
   const now = new Date()
   const wrap = document.createElement("div")
   wrap.className = "cal"
   wrap.append(calSwitch())
   if (calRange === "today") {
-    const col = document.createElement("div")
-    col.className = "cal-agenda"
-    const evs = eventsOn(items, now)
-    if (evs.length === 0) {
-      const e = document.createElement("p")
-      e.className = "empty-detail"
-      e.textContent = "Nothing scheduled today."
-      col.append(e)
-    }
-    for (const it of evs) col.append(eventChip(it))
-    wrap.append(col)
+    wrap.append(timeGridEl(items, [now], now))
   } else if (calRange === "week") {
-    wrap.append(weekGridEl(items, now))
+    wrap.append(timeGridEl(items, weekDays(now), now))
   } else {
     const grid = document.createElement("div")
     grid.className = "cal-month"
@@ -267,7 +325,7 @@ function renderDetail() {
       const h = document.createElement("div")
       h.className = "allweek-head"
       h.textContent = "This week"
-      sec.append(h, weekGridEl(cals, new Date(), " compact"))
+      sec.append(h, timeGridEl(cals, weekDays(new Date()), new Date(), true))
       detail.append(sec)
     }
   }
