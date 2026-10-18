@@ -134,3 +134,32 @@ test("prs include hidden PRs with their status, and stats count them", () => {
     toReview: 1,
   })
 })
+
+test("projects and RFCs have their own lists and need the operator only with an action", () => {
+  const m = buildModel(
+    [
+      row("sub1", { key: "p1", kind: "project", source: "projects", meta: '{"health":"onTrack"}' }),
+      row("sub1", {
+        key: "p2",
+        kind: "project",
+        source: "projects",
+        priority: 1,
+        meta: '{"action":"Post a project update"}',
+      }),
+      row("sub1", { key: "d1", kind: "doc", source: "docs", status: "dismissed" }),
+    ],
+    1,
+  )
+  assert.deepEqual(
+    m.projects.map((p) => p.key),
+    ["p2", "p1"],
+  )
+  assert.deepEqual(
+    m.docs.map((d) => [d.key, d.status]),
+    [["d1", "dismissed"]],
+  )
+  assert.deepEqual(
+    m.needs.map((i) => i.key),
+    ["p2"],
+  )
+})
