@@ -42,8 +42,10 @@ export interface Model {
   schedule: ScheduleEntry[]
   // Everything that needs the operator, across accounts, most urgent first.
   needs: ModelItem[]
-  // Every open PR, including ones the operator has hidden, with its status.
+  // Every open PR, project and RFC, including hidden ones, with its status.
   prs: (ModelItem & { status: string })[]
+  projects: (ModelItem & { status: string })[]
+  docs: (ModelItem & { status: string })[]
   stats: Stats
   // The latest daily plan, and whether a new one is being written.
   briefing: (Briefing & { running: boolean }) | null
@@ -72,11 +74,15 @@ function toItem(row: Row): ModelItem {
 const byPriority = (a: ModelItem, b: ModelItem) =>
   a.priority - b.priority || a.key.localeCompare(b.key)
 
-// A calendar event is shown on the calendar, and a PR with nothing to do is
-// shown with the PRs; neither needs the operator.
+// Kinds that have their own panel; one of them needs the operator only when
+// it carries an action.
+const RECORD_KINDS = new Set(["pr", "project", "doc"])
+
+// A calendar event is shown on the calendar, and a PR, project or RFC with
+// nothing to do is shown in its own panel; none of them needs the operator.
 export function needsOperator(item: ModelItem): boolean {
   if (item.kind === "calendar") return false
-  if (item.kind === "pr") return Boolean(item.meta.action)
+  if (RECORD_KINDS.has(item.kind)) return Boolean(item.meta.action)
   return true
 }
 
@@ -106,10 +112,12 @@ export function buildModel(rows: Row[], now: number, reporters: Reporter[] = [])
     .sort((a, b) => a.at.localeCompare(b.at))
 
   const needs = active.filter(needsOperator).sort(byPriority)
-  const prs = rows
-    .filter((r) => r.kind === "pr" && r.status !== "resolved")
-    .map((r) => ({ ...toItem(r), status: r.status }))
-    .sort((a, b) => a.key.localeCompare(b.key))
+  const records = (kind: string) =>
+    rows
+      .filter((r) => r.kind === kind && r.status !== "resolved")
+      .map((r) => ({ ...toItem(r), status: r.status }))
+      .sort((a, b) => a.priority - b.priority || a.key.localeCompare(b.key))
+  const prs = records("pr")
   const today = startOfDay(now)
   const stats: Stats = {
     now: needs.filter((i) => i.priority === 1).length,
@@ -125,6 +133,8 @@ export function buildModel(rows: Row[], now: number, reporters: Reporter[] = [])
     generatedAt: now,
     needs,
     prs,
+    projects: records("project"),
+    docs: records("doc"),
     stats,
     briefing: null,
     accounts: [...accounts.entries()]
