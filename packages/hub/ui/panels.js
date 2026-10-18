@@ -1,4 +1,4 @@
-import { ago, snoozeOptions } from "./view.js"
+import { ago, snoozeOptions, sourceState } from "./view.js"
 
 export function el(tag, className, text) {
   const node = document.createElement(tag)
@@ -297,5 +297,40 @@ export function projectsPanel(ctx, projects) {
 export function docsPanel(ctx, docs) {
   const box = panel("RFCs", docs.length)
   for (const d of docs) box.append(docRow(ctx, d))
+  return box
+}
+
+const since = (ms) => `${ago(new Date(ms).toISOString())} ago`
+
+// Every source's health in one line, and why each failing one fails.
+export function healthStrip(ctx, sources, who) {
+  const box = el("section", "health")
+  const pills = el("div", "health-pills")
+  const failing = []
+  for (const src of sources) {
+    const state = sourceState(src)
+    const pill = el("span", `src ${state}`)
+    if (who === "All") pill.append(accountTag(ctx, src.account))
+    pill.append(
+      el("span", "src-name", src.source),
+      el("span", "src-age mono", ago(new Date(src.lastSeen).toISOString())),
+    )
+    const why = src.error ?? src.note
+    pill.title = `${src.account} · ${src.source}: last report ${since(src.lastSeen)}${
+      src.okAt ? `, last success ${since(src.okAt)}` : ", never succeeded"
+    }${why ? `\n${why}` : ""}`
+    pills.append(pill)
+    if (state === "error") failing.push(src)
+  }
+  box.append(pills)
+  for (const src of failing) {
+    const line = el("div", "health-error")
+    line.append(
+      el("span", "health-where", `${src.account} · ${src.source}`),
+      ` ${src.okAt ? `failing; last success ${since(src.okAt)}` : "has never succeeded"}: `,
+      el("span", "mono", src.error),
+    )
+    box.append(line)
+  }
   return box
 }

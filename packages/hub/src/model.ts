@@ -47,6 +47,8 @@ export interface Model {
   projects: (ModelItem & { status: string })[]
   docs: (ModelItem & { status: string })[]
   stats: Stats
+  // Each account's sources: when each last reported, and whether it failed.
+  sources: Reporter[]
   // The latest daily plan, and whether a new one is being written.
   briefing: (Briefing & { running: boolean }) | null
 }
@@ -136,6 +138,9 @@ export function buildModel(rows: Row[], now: number, reporters: Reporter[] = [])
     projects: records("project"),
     docs: records("doc"),
     stats,
+    sources: reporters
+      .filter((r) => r.source !== "tasks")
+      .sort((a, b) => a.account.localeCompare(b.account) || a.source.localeCompare(b.source)),
     briefing: null,
     accounts: [...accounts.entries()]
       .map(([account, items]) => ({ account, items: items.sort(byPriority) }))

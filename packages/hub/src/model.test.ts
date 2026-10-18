@@ -25,7 +25,9 @@ function row(account: string, over: Partial<Row> = {}): Row {
 }
 
 test("a reporting account with no items still appears", () => {
-  const m = buildModel([], 1, [{ account: "sub1", source: "github", lastSeen: 1 }])
+  const m = buildModel([], 1, [
+    { account: "sub1", source: "github", lastSeen: 1, okAt: 1, error: null, note: null },
+  ])
   assert.equal(m.accounts.length, 1)
   assert.equal(m.accounts[0]?.account, "sub1")
   assert.equal(m.accounts[0]?.items.length, 0)

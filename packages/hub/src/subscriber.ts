@@ -51,6 +51,11 @@ export async function startSubscriber(deps: SubscriberDeps): Promise<Subscriber>
         source: snapshot.source,
         note: snapshot.note ?? "",
       })
+      try {
+        deps.store.sourceFailed(snapshot.account, snapshot.source, snapshot.note ?? "failed", now())
+      } catch (err) {
+        onError(err)
+      }
       return
     }
     log.debug("opened", {
@@ -59,7 +64,7 @@ export async function startSubscriber(deps: SubscriberDeps): Promise<Subscriber>
       items: snapshot.items.length,
     })
     try {
-      deps.store.reconcile(snapshot.account, snapshot.source, snapshot.items, now())
+      deps.store.reconcile(snapshot.account, snapshot.source, snapshot.items, now(), snapshot.note)
       log.debug("reconciled", { account: snapshot.account, source: snapshot.source })
     } catch (err) {
       onError(err)

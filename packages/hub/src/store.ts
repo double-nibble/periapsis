@@ -24,14 +24,20 @@ export interface Row {
   meta: string
 }
 
+// What the hub last heard from one account's source: when, when it last
+// succeeded, why it failed if it did, and any note about part of it failing.
 export interface Reporter {
   account: string
   source: string
   lastSeen: number
+  okAt: number | null
+  error: string | null
+  note: string | null
 }
 
 export interface Store {
-  reconcile(account: string, source: string, items: Item[], now: number): void
+  reconcile(account: string, source: string, items: Item[], now: number, note?: string | null): void
+  sourceFailed(account: string, source: string, error: string, now: number): void
   reporters(): Reporter[]
   act(
     account: string,
@@ -83,6 +89,14 @@ export function openStore(path: string): Store {
   `)
   const columns = db.prepare("PRAGMA table_info(items)").all() as { name: string }[]
   if (!columns.some((c) => c.name === "body")) db.exec("ALTER TABLE items ADD COLUMN body TEXT")
+  const sourceColumns = db.prepare("PRAGMA table_info(sources)").all() as { name: string }[]
+  for (const [col, type] of [
+    ["ok_at", "INTEGER"],
+    ["error", "TEXT"],
+    ["note", "TEXT"],
+  ])
+    if (!sourceColumns.some((c) => c.name === col))
+      db.exec(`ALTER TABLE sources ADD COLUMN ${col} ${type}`)
 
   const get = db.prepare("SELECT * FROM items WHERE account=? AND source=? AND key=?")
   const insert = db.prepare(`
@@ -102,9 +116,14 @@ export function openStore(path: string): Store {
   const prune = db.prepare("DELETE FROM items WHERE status='resolved' AND resolved_at < ?")
   const all = db.prepare("SELECT * FROM items")
   const touchSource = db.prepare(
-    "INSERT INTO sources (account, source, last_seen) VALUES (?, ?, ?) ON CONFLICT (account, source) DO UPDATE SET last_seen=excluded.last_seen",
+    "INSERT INTO sources (account, source, last_seen, ok_at, error, note) VALUES (?, ?, ?, ?, NULL, ?) ON CONFLICT (account, source) DO UPDATE SET last_seen=excluded.last_seen, ok_at=excluded.ok_at, error=NULL, note=excluded.note",
   )
-  const allSources = db.prepare("SELECT account, source, last_seen AS lastSeen FROM sources")
+  const failSource = db.prepare(
+    "INSERT INTO sources (account, source, last_seen, error) VALUES (?, ?, ?, ?) ON CONFLICT (account, source) DO UPDATE SET last_seen=excluded.last_seen, error=excluded.error",
+  )
+  const allSources = db.prepare(
+    "SELECT account, source, last_seen AS lastSeen, ok_at AS okAt, error, note FROM sources",
+  )
   const readState = db.prepare("SELECT value FROM state WHERE name=?")
   const writeState = db.prepare(
     "INSERT INTO state (name, value) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET value=excluded.value",
@@ -115,7 +134,13 @@ export function openStore(path: string): Store {
     return parts.slice(2).join(":")
   }
 
-  function reconcile(account: string, source: string, items: Item[], now: number): void {
+  function reconcile(
+    account: string,
+    source: string,
+    items: Item[],
+    now: number,
+    note: string | null = null,
+  ): void {
     const seen = new Set<string>()
     db.exec("BEGIN")
     try {
@@ -166,7 +191,7 @@ export function openStore(path: string): Store {
       for (const row of bySource.all(account, source) as unknown as Row[]) {
         if (!seen.has(row.key)) setStatus.run("resolved", null, now, account, source, row.key)
       }
-      touchSource.run(account, source, now)
+      touchSource.run(account, source, now, now, note)
       prune.run(now - PRUNE_AFTER_MS)
       db.exec("COMMIT")
     } catch (err) {
@@ -201,6 +226,9 @@ export function openStore(path: string): Store {
     get: (account, source, key) =>
       (get.get(account, source, key) as unknown as Row | undefined) ?? null,
     list: () => all.all() as unknown as Row[],
+    sourceFailed: (account, source, error, now) => {
+      failSource.run(account, source, now, error)
+    },
     reporters: () => allSources.all() as unknown as Reporter[],
     getState: <T>(name: string) => {
       const row = readState.get(name) as { value: string } | undefined

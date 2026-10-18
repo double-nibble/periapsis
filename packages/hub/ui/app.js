@@ -1,6 +1,7 @@
 import {
   docsPanel,
   el,
+  healthStrip,
   needsPanel,
   projectsPanel,
   prsPanel,
@@ -27,6 +28,7 @@ import {
 } from "./view.js"
 
 const chips = document.getElementById("chips")
+const health = document.getElementById("health")
 const calendar = document.getElementById("calendar")
 const left = document.getElementById("left")
 const right = document.getElementById("right")
@@ -456,6 +458,7 @@ function render() {
   if (who !== "All" && !model.accounts.some((a) => a.account === who)) who = "All"
   const mine = (i) => who === "All" || i.account === who
   renderChips()
+  health.replaceChildren(healthStrip(ctx, (model.sources ?? []).filter(mine), who))
   renderCalendar(
     model.accounts
       .filter(mine)
