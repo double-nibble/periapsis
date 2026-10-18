@@ -18,6 +18,7 @@ test("the built-ins cover the connector-backed types", () => {
     "docs",
     "email",
     "messages",
+    "projects",
     "tickets",
   ])
 })
