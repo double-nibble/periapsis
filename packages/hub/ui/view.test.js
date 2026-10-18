@@ -232,11 +232,31 @@ test("snoozeOptions next week is the following Monday at 9", () => {
   assert.equal(monday.getDate(), 26)
 })
 
-test("metaRows hides the instance and sorts the rest", () => {
-  assert.deepEqual(metaRows({ instance: "gh", state: "done", at: "x" }), [
-    ["at", "x"],
-    ["state", "done"],
-  ])
+test("metaRows labels known fields in order, hides internal ones, and reads times", () => {
+  const now = Date.parse("2026-10-18T12:00:00Z")
+  assert.deepEqual(
+    metaRows(
+      {
+        instance: "gh",
+        role: "author",
+        ref: "acme/api#7",
+        createdAt: "2026-10-16T12:00:00Z",
+        statusLabel: "In review",
+        action: "Merge it",
+        waitingOn: "",
+        progress: "0.4",
+        custom: "x",
+      },
+      now,
+    ),
+    [
+      ["Next", "Merge it"],
+      ["Status", "In review"],
+      ["Opened", "2d ago"],
+      ["Progress", "40%"],
+      ["custom", "x"],
+    ],
+  )
 })
 
 test("zoomStep moves one level, stops at the ends, and resets", () => {
