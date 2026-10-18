@@ -4,12 +4,14 @@ import {
   TYPE_ORDER,
   accountColors,
   allDayLanes,
+  clampHeight,
   eventSpan,
   eventsOn,
   filterByType,
   fleetItems,
   hourRange,
   itemsFor,
+  keepCenter,
   metaRows,
   monthGrid,
   parseWhen,
@@ -20,6 +22,7 @@ import {
   timedSegments,
   urgent,
   weekDays,
+  zoomStep,
 } from "./view.js"
 
 const model = {
@@ -232,4 +235,24 @@ test("metaRows hides the instance and sorts the rest", () => {
     ["at", "x"],
     ["state", "done"],
   ])
+})
+
+test("zoomStep moves one level, stops at the ends, and resets", () => {
+  assert.equal(zoomStep(1, 1), 1.25)
+  assert.equal(zoomStep(1, -1), 0.75)
+  assert.equal(zoomStep(3, 1), 3)
+  assert.equal(zoomStep(0.5, -1), 0.5)
+  assert.equal(zoomStep(2, 0), 1)
+  assert.equal(zoomStep(1.1, 1), 1.25)
+})
+
+test("keepCenter holds the middle of the view in place", () => {
+  assert.equal(keepCenter(100, 200, 2), 300)
+  assert.equal(keepCenter(0, 200, 0.5), 0)
+})
+
+test("clampHeight keeps the view between 80 and 1200 pixels", () => {
+  assert.equal(clampHeight(10), 80)
+  assert.equal(clampHeight(5000), 1200)
+  assert.equal(clampHeight(250.4), 250)
 })
