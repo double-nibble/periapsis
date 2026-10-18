@@ -443,6 +443,60 @@ a.tg-allday-ev:hover {
   margin: 0;
   overflow-wrap: anywhere;
 }
+.dlg-sent {
+  padding: 0 16px 12px;
+}
+.dlg-sent-head {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.dlg-sent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.dlg-sent-row {
+  display: grid;
+  grid-template-columns: 3em auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.dlg-sent-row .muted {
+  color: var(--muted);
+}
+.dlg-sent-row.open {
+  cursor: pointer;
+}
+.dlg-sent-row.open:hover {
+  background: var(--raised);
+}
+.dlg-sent-prompt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag.sent-done {
+  color: var(--green);
+}
+.tag.sent-failed {
+  color: var(--red);
+}
+.tag.sent-running,
+.tag.sent-queued {
+  color: var(--amber);
+}
+.tag.sent-unknown {
+  color: var(--muted);
+}
 .dlg-respond {
   display: grid;
   gap: 8px;

@@ -9,6 +9,8 @@ import type { Store } from "./store.js"
 
 const log = createLogger("hub.http")
 
+const COMMANDS_SHOWN_MS = 30 * 86_400_000
+
 const UI_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "ui")
 
 export interface HubServer {
@@ -67,7 +69,12 @@ export function startServer(
 ): HubServer {
   const clients = new Set<import("node:http").ServerResponse>()
   const build = (): Model => ({
-    ...buildModel(store.list(), now(), store.reporters()),
+    ...buildModel(
+      store.list(),
+      now(),
+      store.reporters(),
+      store.commands(now() - COMMANDS_SHOWN_MS),
+    ),
     briefing: actions.briefing?.() ?? null,
   })
   let model: Model = build()
@@ -105,11 +112,16 @@ export function startServer(
       return reply(res, 503, { error: actions.respondUnavailable ?? "responding is not set up" })
     if (typeof b.prompt !== "string" || !b.prompt.trim())
       return reply(res, 400, { error: "prompt is required" })
+    const prompt = b.prompt.trim()
+    let id: string
     try {
-      return reply(res, 200, { id: await actions.respond(row, b.prompt.trim()) })
+      id = await actions.respond(row, prompt)
     } catch (err) {
       return reply(res, 502, { error: (err as Error).message })
     }
+    store.logCommand({ id, at: now(), account, source, key, title: row.title, prompt })
+    push()
+    return reply(res, 200, { id })
   }
 
   const server = createServer(async (req, res) => {

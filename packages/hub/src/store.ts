@@ -35,6 +35,17 @@ export interface Reporter {
   note: string | null
 }
 
+// A respond command the hub sent: when, to which account, about which item.
+export interface Sent {
+  id: string
+  at: number
+  account: string
+  source: string
+  key: string
+  title: string
+  prompt: string
+}
+
 export interface Store {
   reconcile(account: string, source: string, items: Item[], now: number, note?: string | null): void
   sourceFailed(account: string, source: string, error: string, now: number): void
@@ -49,6 +60,9 @@ export interface Store {
   ): Row | null
   get(account: string, source: string, key: string): Row | null
   list(): Row[]
+  logCommand(sent: Sent): void
+  // Commands sent since a time, newest first.
+  commands(since: number): Sent[]
   // Small JSON values the hub keeps, such as the latest daily plan.
   getState<T>(name: string): T | null
   setState(name: string, value: unknown): void
@@ -81,6 +95,15 @@ export function openStore(path: string): Store {
       source TEXT NOT NULL,
       last_seen INTEGER NOT NULL,
       PRIMARY KEY (account, source)
+    );
+    CREATE TABLE IF NOT EXISTS commands (
+      id TEXT PRIMARY KEY,
+      at INTEGER NOT NULL,
+      account TEXT NOT NULL,
+      source TEXT NOT NULL,
+      key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      prompt TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS state (
       name TEXT PRIMARY KEY,
@@ -123,6 +146,13 @@ export function openStore(path: string): Store {
   )
   const allSources = db.prepare(
     "SELECT account, source, last_seen AS lastSeen, ok_at AS okAt, error, note FROM sources",
+  )
+  const addCommand = db.prepare(
+    "INSERT INTO commands (id, at, account, source, key, title, prompt) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  )
+  const pruneCommands = db.prepare("DELETE FROM commands WHERE at < ?")
+  const recentCommands = db.prepare(
+    "SELECT id, at, account, source, key, title, prompt FROM commands WHERE at >= ? ORDER BY at DESC LIMIT 200",
   )
   const readState = db.prepare("SELECT value FROM state WHERE name=?")
   const writeState = db.prepare(
@@ -230,6 +260,11 @@ export function openStore(path: string): Store {
       failSource.run(account, source, now, error)
     },
     reporters: () => allSources.all() as unknown as Reporter[],
+    logCommand: (c) => {
+      addCommand.run(c.id, c.at, c.account, c.source, c.key, c.title, c.prompt)
+      pruneCommands.run(c.at - PRUNE_AFTER_MS)
+    },
+    commands: (since) => recentCommands.all(since) as unknown as Sent[],
     getState: <T>(name: string) => {
       const row = readState.get(name) as { value: string } | undefined
       return row ? (JSON.parse(row.value) as T) : null

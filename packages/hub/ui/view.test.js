@@ -6,6 +6,7 @@ import {
   ago,
   allDayLanes,
   clampHeight,
+  commandsFor,
   eventSpan,
   eventsOn,
   filterByType,
@@ -301,4 +302,17 @@ test("sourceState flags failures, partial failures and silence", () => {
   assert.equal(sourceState({ ...fine, error: "needs-auth" }, now), "error")
   assert.equal(sourceState({ ...fine, note: "one instance failed" }, now), "warn")
   assert.equal(sourceState({ ...fine, lastSeen: now - 4 * 3_600_000 }, now), "warn")
+})
+
+test("commandsFor matches an item's commands, and a task's starting command", () => {
+  const c = (id, source, key, account = "sub1") => ({ id, account, source, key })
+  const commands = [c("t1", "github", "a"), c("t2", "tasks", "t1"), c("t3", "github", "a", "sub2")]
+  assert.deepEqual(
+    commandsFor(commands, { account: "sub1", source: "github", key: "a" }).map((x) => x.id),
+    ["t1"],
+  )
+  assert.deepEqual(
+    commandsFor(commands, { account: "sub1", source: "tasks", key: "t1" }).map((x) => x.id),
+    ["t1", "t2"],
+  )
 })

@@ -11,8 +11,10 @@ import {
 import {
   MIN_EVENT_MINUTES,
   accountColors,
+  ago,
   allDayLanes,
   clampHeight,
+  commandsFor,
   eventSpan,
   eventsOn,
   hourRange,
@@ -160,9 +162,36 @@ function openItem(item) {
     )
   })
 
-  dialog.replaceChildren(head, body, respond, actions, status)
+  const sent = sentList(item)
+  dialog.replaceChildren(head, body, ...(sent ? [sent] : []), respond, actions, status)
   dialog.showModal()
   prompt.focus()
+}
+
+// The prompts sent about this item, each with the state of its task; a task
+// still on the dashboard opens on click.
+function sentList(item) {
+  const sent = commandsFor(model.commands ?? [], item)
+  if (!sent.length) return null
+  const box = el("div", "dlg-sent")
+  box.append(el("h3", "dlg-sent-head", `Sent (${sent.length})`))
+  const list = el("ol", "dlg-sent-list")
+  for (const c of sent) {
+    const task = (model.needs ?? []).find(
+      (i) => i.account === c.account && i.source === "tasks" && i.key === c.id,
+    )
+    const li = el("li", task ? "dlg-sent-row open" : "dlg-sent-row")
+    li.title = c.prompt
+    li.append(
+      el("span", "mono muted", ago(new Date(c.at).toISOString())),
+      el("span", `tag sent-${c.state ?? "unknown"}`, c.state ?? "no reply"),
+      el("span", "dlg-sent-prompt", c.prompt.split("\n")[0]),
+    )
+    if (task) li.addEventListener("click", () => openItem(task))
+    list.append(li)
+  }
+  box.append(list)
+  return box
 }
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { aggregate, buildModel } from "./model.js"
+import { aggregate, buildModel, commandLog } from "./model.js"
 import type { Row } from "./store.js"
 
 function row(account: string, over: Partial<Row> = {}): Row {
@@ -163,5 +163,34 @@ test("projects and RFCs have their own lists and need the operator only with an 
   assert.deepEqual(
     m.needs.map((i) => i.key),
     ["p2"],
+  )
+})
+
+test("a command takes the state of the task its machine reports", () => {
+  const sent = (id: string) => ({
+    id,
+    at: 1,
+    account: "sub1",
+    source: "github",
+    key: "a",
+    title: "t",
+    prompt: "p",
+  })
+  const task = row("sub1", {
+    source: "tasks",
+    key: "c1",
+    kind: "task",
+    meta: JSON.stringify({ state: "done", cost: "$0.12" }),
+  })
+  const log = commandLog(
+    [sent("c1"), sent("c2")],
+    [task, row("sub2", { source: "tasks", key: "c2" })],
+  )
+  assert.deepEqual(
+    log.map((c) => [c.id, c.state, c.cost]),
+    [
+      ["c1", "done", "$0.12"],
+      ["c2", null, null],
+    ],
   )
 })

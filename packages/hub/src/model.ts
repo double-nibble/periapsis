@@ -1,5 +1,5 @@
 import type { Briefing } from "./planner.js"
-import type { Reporter, Row } from "./store.js"
+import type { Reporter, Row, Sent } from "./store.js"
 
 export interface ModelItem {
   account: string
@@ -36,6 +36,12 @@ export interface Stats {
   toReview: number
 }
 
+// A sent command, with the state of the task its machine reported for it.
+export interface CommandEntry extends Sent {
+  state: string | null
+  cost: string | null
+}
+
 export interface Model {
   generatedAt: number
   accounts: AccountModel[]
@@ -49,6 +55,8 @@ export interface Model {
   stats: Stats
   // Each account's sources: when each last reported, and whether it failed.
   sources: Reporter[]
+  // Respond commands sent from the dashboard, newest first.
+  commands: CommandEntry[]
   // The latest daily plan, and whether a new one is being written.
   briefing: (Briefing & { running: boolean }) | null
 }
@@ -94,7 +102,23 @@ function startOfDay(ms: number): number {
   return d.getTime()
 }
 
-export function buildModel(rows: Row[], now: number, reporters: Reporter[] = []): Model {
+// A machine reports each command's task under its tasks source, keyed by the command id.
+export function commandLog(sent: Sent[], rows: Row[]): CommandEntry[] {
+  const tasks = new Map(
+    rows.filter((r) => r.source === "tasks").map((r) => [`${r.account}:${r.key}`, toItem(r)]),
+  )
+  return sent.map((c) => {
+    const meta = tasks.get(`${c.account}:${c.id}`)?.meta
+    return { ...c, state: meta?.state ?? null, cost: meta?.cost ?? null }
+  })
+}
+
+export function buildModel(
+  rows: Row[],
+  now: number,
+  reporters: Reporter[] = [],
+  sent: Sent[] = [],
+): Model {
   // A snoozed item comes back when its snooze ends.
   const shown = (r: Row) =>
     r.status === "active" || (r.status === "snoozed" && (r.hidden_until ?? 0) <= now)
@@ -141,6 +165,7 @@ export function buildModel(rows: Row[], now: number, reporters: Reporter[] = [])
     sources: reporters
       .filter((r) => r.source !== "tasks")
       .sort((a, b) => a.account.localeCompare(b.account) || a.source.localeCompare(b.source)),
+    commands: commandLog(sent, rows),
     briefing: null,
     accounts: [...accounts.entries()]
       .map(([account, items]) => ({ account, items: items.sort(byPriority) }))
