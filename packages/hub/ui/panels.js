@@ -129,7 +129,7 @@ function prRow(ctx, pr) {
   top.append(el("span", "pr-ref mono", m.ref ?? ""), el("span", "pr-title", m.prTitle ?? pr.title))
   const facts = el("div", "pr-facts")
   const fact = (text, cls = "") => facts.append(el("span", `fact ${cls}`, text))
-  fact(m.size ?? "", "mono")
+  if (m.size) fact(m.size, "mono")
   if (m.createdAt) fact(`opened ${ago(m.createdAt)} ago`)
   if (m.role === "reviewer" && m.author) fact(`by ${m.author}`)
   if (m.stackedOn) fact(`stacked on ${m.stackedOn}`, "mono")

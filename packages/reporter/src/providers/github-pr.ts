@@ -62,8 +62,9 @@ export interface Pr {
   author: string | null
   isDraft: boolean
   createdAt: string
-  additions: number
-  deletions: number
+  // Unknown when the service does not report a diff size.
+  additions: number | null
+  deletions: number | null
   stackedOn: string | null
   headOid: string
   reviewDecision: string | null
@@ -235,7 +236,9 @@ export function prItem(
       prTitle: pr.title,
       author: pr.author ?? "",
       createdAt: pr.createdAt,
-      size: `+${pr.additions}/-${pr.deletions}`,
+      ...(pr.additions !== null && pr.deletions !== null
+        ? { size: `+${pr.additions}/-${pr.deletions}` }
+        : {}),
       waitingOn: pr.reviewers.join(", "),
       checks: checksSummary(pr),
       ...(pr.failed.length ? { failing: pr.failed.join(", ") } : {}),

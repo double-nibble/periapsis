@@ -40,6 +40,17 @@ items.
 
 ## Direct providers
 
+A direct provider that needs a credential takes it in `params` one of three ways, so
+`instances.json` need not hold the secret itself:
+
+- `token`: the value itself.
+- `tokenFile`: a path to a file holding it (`~` is the home directory).
+- `tokenEnv`: the name of an environment variable holding it.
+
+The same applies to any other credential a provider names, such as `apiKey`
+(`apiKeyFile`, `apiKeyEnv`).
+
+
 ### github
 
 Open pull requests authored by, and awaiting review from, a GitHub login, one item per PR titled with what to do next: Review for, Fix failing checks, Address requested changes, Reply to, Merge it, Resolve merge conflicts, Update the branch, Request reviewers, Finish the draft, or Chase reviewers after a week in review. A PR with nothing to do keeps its status (In review, Approved, waits on parent, …) and its size, checks, reviewers and open threads. Type: `code`.
