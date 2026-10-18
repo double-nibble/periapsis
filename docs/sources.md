@@ -94,6 +94,24 @@ The month's events from a secret iCal feed, no OAuth, with recurring events expa
 - `icsUrl` — a private ICS feed URL. In Google Calendar: *Settings → <your calendar> →
   Integrate calendar → Secret address in iCal format*. Any ICS feed URL also works.
 
+### bitbucket
+
+Open Bitbucket Cloud pull requests you authored or are reviewing, one item per PR titled with
+what to do next, like `github`: review it, fix failing builds, address changes, reply to an
+open comment thread, merge, request reviewers, finish the draft or chase reviewers.
+Bitbucket does not report diff size or merge state, so those are left out. Type: `code`.
+
+```json
+{ "provider": "bitbucket", "instance": "bitbucket", "every": "5m",
+  "params": { "repos": ["acme/api", "acme/web"], "tokenFile": "~/.periapsis/bitbucket-token" } }
+```
+
+- `repos`: the repositories to read, as `workspace/repo`. Bitbucket has no search across a
+  workspace for reviews, so each is listed.
+- `token` (or `tokenFile` / `tokenEnv`): a Bitbucket API token with read access to pull
+  requests, sent as a bearer token. Set `email` to send it with your Atlassian email as
+  basic auth instead.
+
 ### jira
 
 Jira Cloud issues assigned to you that are not done, one item per issue: in progress or due
