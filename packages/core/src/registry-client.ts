@@ -40,8 +40,16 @@ export class RegistryClient {
     if (url.protocol !== "https:") throw new Error("registry url must be https")
     const f = this.config.fetchImpl ?? fetch
     log.debug("fetching", { url: this.config.url })
-    const res = await f(this.config.url)
-    if (!res.ok) throw new Error(`registry fetch ${res.status}`)
+    let res: Response
+    try {
+      res = await f(this.config.url)
+    } catch (err) {
+      // fetch reports only "fetch failed"; the reason (DNS, refused, TLS) is in cause.
+      const cause = (err as { cause?: { code?: string; message?: string } }).cause
+      const why = cause?.code ?? cause?.message ?? (err as Error).message
+      throw new Error(`cannot fetch the registry from ${this.config.url}: ${why}`)
+    }
+    if (!res.ok) throw new Error(`the registry at ${this.config.url} returned HTTP ${res.status}`)
     const doc = (await res.json()) as SignedRegistry
     if (!verifyRegistry(doc, this.config.rootSignPublic))
       throw new Error("registry signature does not verify")
