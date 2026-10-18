@@ -8,5 +8,6 @@ export {
   type ModelItem,
   type ScheduleEntry,
 } from "./model.js"
-export { startServer, type HubServer } from "./server.js"
+export { startServer, type HubServer, type Actions } from "./server.js"
+export { commander, type Respond } from "./commander.js"
 export { main } from "./main.js"
