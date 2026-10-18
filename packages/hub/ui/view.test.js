@@ -2,14 +2,20 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import {
   TYPE_ORDER,
+  accountColors,
+  allDayLanes,
+  eventSpan,
   eventsOn,
   filterByType,
   fleetItems,
+  hourRange,
   itemsFor,
   monthGrid,
+  parseWhen,
   presentTypes,
   sameDay,
   startOfWeek,
+  timedSegments,
   urgent,
   weekDays,
 } from "./view.js"
@@ -97,9 +103,9 @@ test("monthGrid covers every day of the month in whole weeks", () => {
 
 test("eventsOn selects a day's events, sorted by start", () => {
   const items = [
-    { key: "late", meta: { at: "2026-10-17T15:00:00.000Z" } },
-    { key: "early", meta: { at: "2026-10-17T09:00:00.000Z" } },
-    { key: "other", meta: { at: "2026-10-18T09:00:00.000Z" } },
+    { key: "late", meta: { at: "2026-10-17T15:00:00" } },
+    { key: "early", meta: { at: "2026-10-17T09:00:00" } },
+    { key: "other", meta: { at: "2026-10-18T09:00:00" } },
     { key: "none", meta: {} },
   ]
   const day = new Date(2026, 9, 17, 0, 0, 0)
@@ -112,4 +118,85 @@ test("eventsOn selects a day's events, sorted by start", () => {
 test("sameDay ignores time of day", () => {
   assert.ok(sameDay(new Date(2026, 9, 17, 1), new Date(2026, 9, 17, 23)))
   assert.ok(!sameDay(new Date(2026, 9, 17), new Date(2026, 9, 18)))
+})
+
+const ev = (key, at, end, allDay) => ({
+  key,
+  meta: { at, ...(end ? { end } : {}), ...(allDay ? { allDay: "true" } : {}) },
+})
+
+test("parseWhen reads a bare date as a local calendar date", () => {
+  const d = parseWhen("2026-10-17")
+  assert.deepEqual([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()], [2026, 9, 17, 0])
+})
+
+test("eventSpan defaults the end and recognizes all-day events", () => {
+  const timed = eventSpan(ev("t", "2026-10-17T09:00:00"))
+  assert.equal(timed.allDay, false)
+  assert.equal(timed.end - timed.start, 3_600_000)
+  assert.equal(eventSpan(ev("a", "2026-10-17", "2026-10-19", true)).allDay, true)
+  // an older item with a bare date and no flag is still all-day, on that day
+  const legacy = eventSpan(ev("l", "2026-10-17"))
+  assert.equal(legacy.allDay, true)
+  assert.equal(legacy.start.getDate(), 17)
+  assert.equal(eventSpan({ key: "x", meta: {} }), null)
+})
+
+test("eventsOn includes multi-day and overnight events on every day they touch", () => {
+  const items = [
+    ev("trip", "2026-10-16", "2026-10-19", true),
+    ev("night", "2026-10-17T18:30:00", "2026-10-18T09:30:00"),
+    ev("lunch", "2026-10-17T12:00:00", "2026-10-17T13:00:00"),
+  ]
+  const keys = (d) => eventsOn(items, d).map((i) => i.key)
+  assert.deepEqual(keys(new Date(2026, 9, 17)), ["trip", "lunch", "night"])
+  assert.deepEqual(keys(new Date(2026, 9, 18)), ["trip", "night"])
+  assert.deepEqual(keys(new Date(2026, 9, 19)), [])
+})
+
+test("allDayLanes spans days and stacks overlapping events in lanes", () => {
+  const days = weekDays(new Date(2026, 9, 14)) // Sun 11 .. Sat 17
+  const lanes = allDayLanes(
+    [
+      ev("long", "2026-10-09", "2026-10-14", true), // starts before the week
+      ev("mid", "2026-10-13", "2026-10-16", true),
+      ev("late", "2026-10-15", "2026-10-25", true), // runs past the week
+      ev("timed", "2026-10-13T09:00:00"),
+    ],
+    days,
+  )
+  const by = Object.fromEntries(lanes.map((l) => [l.item.key, l]))
+  assert.equal(lanes.length, 3)
+  assert.deepEqual([by.long.from, by.long.to, by.long.before], [0, 3, true])
+  assert.deepEqual([by.mid.from, by.mid.to, by.mid.lane], [2, 5, 1])
+  assert.deepEqual([by.late.from, by.late.to, by.late.lane, by.late.after], [4, 7, 0, true])
+})
+
+test("timedSegments clips overnight events and places overlaps side by side", () => {
+  const items = [
+    ev("a", "2026-10-17T09:00:00", "2026-10-17T10:00:00"),
+    ev("b", "2026-10-17T09:30:00", "2026-10-17T10:30:00"),
+    ev("c", "2026-10-17T10:30:00", "2026-10-17T11:00:00"),
+    ev("night", "2026-10-16T22:00:00", "2026-10-17T02:00:00"),
+    ev("allday", "2026-10-17", "2026-10-18", true),
+  ]
+  const segs = Object.fromEntries(
+    timedSegments(items, new Date(2026, 9, 17)).map((s) => [s.item.key, s]),
+  )
+  assert.equal(segs.allday, undefined)
+  assert.deepEqual([segs.night.startMin, segs.night.endMin, segs.night.before], [0, 120, true])
+  assert.deepEqual([segs.a.col, segs.a.cols], [0, 2])
+  assert.deepEqual([segs.b.col, segs.b.cols], [1, 2])
+  assert.deepEqual([segs.c.col, segs.c.cols], [0, 1])
+  const prev = timedSegments(items, new Date(2026, 9, 16)).find((s) => s.item.key === "night")
+  assert.deepEqual([prev.startMin, prev.endMin, prev.after], [1320, 1440, true])
+})
+
+test("hourRange covers the working day, widened to fit events", () => {
+  assert.deepEqual(hourRange([]), { from: 8, to: 18 })
+  assert.deepEqual(hourRange([{ startMin: 390, endMin: 1290 }]), { from: 6, to: 22 })
+})
+
+test("accountColors gives each account a stable slot", () => {
+  assert.deepEqual(accountColors(["sub1", "sub2"]), { sub1: 0, sub2: 1 })
 })
