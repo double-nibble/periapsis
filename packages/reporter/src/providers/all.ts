@@ -1,6 +1,7 @@
 import type { Provider } from "../provider.js"
 import { bitbucket } from "./bitbucket.js"
 import { calendar } from "./calendar.js"
+import { confluence } from "./confluence.js"
 import { github } from "./github.js"
 import { ical } from "./ical.js"
 import { jira } from "./jira.js"
@@ -12,4 +13,5 @@ export const PROVIDERS = new Map<string, Provider>([
   ["gcal", calendar],
   ["ical", ical],
   ["jira", jira],
+  ["confluence", confluence],
 ])
