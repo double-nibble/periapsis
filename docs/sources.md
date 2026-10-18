@@ -128,6 +128,23 @@ by today first, backlog last. Source: `tickets`. One instance per Jira site.
 - `jql`: optional; replaces the default query (`assignee = currentUser() AND
   statusCategory != Done`).
 
+### confluence
+
+Confluence Cloud pages that mention you, or that you created or edited recently, with
+their open comments, shown with the RFCs. A page asks you to answer when it has open
+top-level inline or footer comments from someone else, or to read a mention. Source:
+`docs`. One instance per Confluence site.
+
+```json
+{ "provider": "confluence", "instance": "acme-wiki", "every": "30m",
+  "params": { "site": "acme.atlassian.net", "email": "you@example.com", "tokenFile": "~/.periapsis/atlassian-token" } }
+```
+
+- `site`, `email` and `token` (or `tokenFile` / `tokenEnv`): as for `jira`; one Atlassian
+  API token works for both.
+- `days`: how far back to look; default 30.
+- `cql`: optional; replaces the query for your pages (mentions are always read).
+
 ### An external provider
 
 A provider of an existing type can live outside this repo. Point an instance at its module;
