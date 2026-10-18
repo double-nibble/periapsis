@@ -115,3 +115,29 @@ test("state keeps small JSON values by name", () => {
   assert.deepEqual(s.getState("briefing"), { headline: "b" })
   s.close()
 })
+
+test("sources record success, partial notes and failures", () => {
+  const s = openStore(":memory:")
+  s.reconcile("sub1", "github", [], 10, "gh-work: rate limited")
+  s.sourceFailed("sub1", "slack", "needs-auth", 20)
+  s.reconcile("sub1", "slack", [], 30)
+  s.sourceFailed("sub1", "github", "token expired", 40)
+  const by = Object.fromEntries(s.reporters().map((r) => [r.source, { ...r }]))
+  assert.deepEqual(by.github, {
+    account: "sub1",
+    source: "github",
+    lastSeen: 40,
+    okAt: 10,
+    error: "token expired",
+    note: "gh-work: rate limited",
+  })
+  assert.deepEqual(by.slack, {
+    account: "sub1",
+    source: "slack",
+    lastSeen: 30,
+    okAt: 30,
+    error: null,
+    note: null,
+  })
+  s.close()
+})

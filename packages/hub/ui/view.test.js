@@ -20,6 +20,7 @@ import {
   sameDay,
   scrollToNow,
   snoozeOptions,
+  sourceState,
   startOfWeek,
   timedSegments,
   urgent,
@@ -291,4 +292,13 @@ test("ago is brief: minutes, hours, then days", () => {
   assert.equal(ago("2026-10-18T07:00:00Z", now), "5h")
   assert.equal(ago("2026-10-15T12:00:00Z", now), "3d")
   assert.equal(ago("not a date", now), "")
+})
+
+test("sourceState flags failures, partial failures and silence", () => {
+  const now = 10 * 3_600_000
+  const fine = { lastSeen: now - 60_000, error: null, note: null }
+  assert.equal(sourceState(fine, now), "ok")
+  assert.equal(sourceState({ ...fine, error: "needs-auth" }, now), "error")
+  assert.equal(sourceState({ ...fine, note: "one instance failed" }, now), "warn")
+  assert.equal(sourceState({ ...fine, lastSeen: now - 4 * 3_600_000 }, now), "warn")
 })

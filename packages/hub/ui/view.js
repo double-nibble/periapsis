@@ -339,3 +339,13 @@ export function ago(iso, now = Date.now()) {
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`
   return `${Math.floor(ms / 86_400_000)}d`
 }
+
+// A source is stale when it has not reported for this long.
+export const STALE_MS = 3 * 3_600_000
+
+// How a source is doing: failing, partly failing or stale, or fine.
+export function sourceState(src, now = Date.now()) {
+  if (src.error) return "error"
+  if (src.note || now - src.lastSeen > STALE_MS) return "warn"
+  return "ok"
+}

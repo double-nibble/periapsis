@@ -105,3 +105,31 @@ test("a tampered envelope is dropped without stalling others", async () => {
   assert.equal(store.list()[0]?.account, "sub2")
   store.close()
 })
+
+test("a failed snapshot records the failure and keeps the source's items", async () => {
+  const broker = new MemoryBroker()
+  const store = openStore(":memory:")
+  const reg = await registry()
+  await startSubscriber({ broker, store, registry: reg, hubBoxPrivate: hub.identity.boxPrivate })
+  await broker.publish(
+    "status.sub1",
+    sealedSnapshot(sub1, {
+      account: "sub1",
+      source: "messages",
+      items: [{ key: "a", kind: "message", title: "t", fingerprint: "f" }],
+    }),
+  )
+  await broker.publish(
+    "status.sub1",
+    sealedSnapshot(sub1, {
+      account: "sub1",
+      source: "messages",
+      failed: true,
+      note: "slack: needs-auth",
+    }),
+  )
+  await new Promise((r) => setTimeout(r, 20))
+  assert.equal(store.reporters()[0]?.error, "slack: needs-auth")
+  assert.equal(store.list()[0]?.status, "active")
+  store.close()
+})

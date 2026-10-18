@@ -333,6 +333,8 @@ providers and agent sources, every instance setting and examples are in
 ![The dashboard with two accounts](docs/images/dashboard.png)
 
 - Chips across the top filter everything to one account.
+- Below them, a pill per source shows when it last reported: amber when part of it failed or it
+  has been silent for three hours, red when it failed, with the reason underneath.
 - The calendar spans the page, with today, week and month views. The week and today views
   scroll, zoom (− = +) and resize by dragging their bottom edge.
 - **Today**: the daily plan, a headline and ordered steps tagged with their accounts; ↻
