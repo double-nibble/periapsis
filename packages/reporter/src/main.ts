@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { RegistryClient, createLogger } from "@periapsis/core"
 import { NatsBroker } from "@periapsis/transport"
+import { loadInstances } from "./instances.js"
 import { PROVIDERS } from "./providers/all.js"
 import { type ReporterConfig, startReporter } from "./runtime.js"
 
@@ -12,7 +13,8 @@ interface FileConfig {
   registryUrl: string
   rootSignPublic: string
   signPrivate: string
-  instances: ReporterConfig["account"]["instances"]
+  // Inline, or a path (relative to this file) read on every start.
+  instances?: ReporterConfig["account"]["instances"] | string
   everyMs?: number
   model?: string
   brokerUser?: string
@@ -23,6 +25,12 @@ interface FileConfig {
 
 export async function main(configPath: string): Promise<void> {
   const cfg = JSON.parse(readFileSync(configPath, "utf8")) as FileConfig
+  const { instances, from } = loadInstances(cfg.instances, configPath)
+  log.info("instances loaded", {
+    from,
+    count: instances.length,
+    names: instances.map((i) => i.instance).join(",") || "(none)",
+  })
 
   const registry = new RegistryClient({ url: cfg.registryUrl, rootSignPublic: cfg.rootSignPublic })
   await registry.start()
@@ -40,7 +48,7 @@ export async function main(configPath: string): Promise<void> {
     broker,
     PROVIDERS,
     {
-      account: { account: cfg.account, instances: cfg.instances },
+      account: { account: cfg.account, instances },
       signPrivate: cfg.signPrivate,
       hub,
       everyMs: cfg.everyMs,

@@ -63,6 +63,20 @@ node -e "const b=require('$DIR/bootstrap.json');require('fs').writeFileSync('$DI
 BLOB=""
 if [ -f "$DIR/config.json" ]; then
   echo "A config already exists at $DIR/config.json; keeping it (remove it to re-enroll)."
+  # Older installs copied instances into config.json; point it at instances.json
+  # instead, keeping whichever list was edited (instances.json, unless it is empty).
+  node -e '
+    const fs = require("fs"), d = process.argv[1]
+    const c = JSON.parse(fs.readFileSync(d + "/config.json", "utf8"))
+    if (!Array.isArray(c.instances)) process.exit(0)
+    let file = []
+    try { file = JSON.parse(fs.readFileSync(d + "/instances.json", "utf8")) } catch {}
+    if (!Array.isArray(file) || file.length === 0)
+      fs.writeFileSync(d + "/instances.json", JSON.stringify(c.instances, null, 2) + "\n")
+    c.instances = "instances.json"
+    fs.writeFileSync(d + "/config.json", JSON.stringify(c, null, 2) + "\n", { mode: 0o600 })
+    console.log("config.json now reads its instances from instances.json.")
+  ' "$DIR"
 else
   if ! BLOB=$(node "$DIR/periapsis.mjs" reporter-enroll --account "$ACCOUNT" \
     --broker "$BROKER" --registry "$REGISTRY" --root-pub "$DIR/root.pub.json" \
@@ -78,7 +92,8 @@ remove_old_agent
 cat >"$DIR/run" <<RUN_EOF
 #!/bin/sh
 # Start this machine's periapsis reporter in the foreground; Ctrl-C stops it.
-exec node "$DIR/reporter.mjs" "$DIR/config.json"
+# Logs at info by default; set PERIAPSIS_LOG=debug for more.
+PERIAPSIS_LOG="\${PERIAPSIS_LOG:-info}" exec node "$DIR/reporter.mjs" "$DIR/config.json"
 RUN_EOF
 chmod +x "$DIR/run"
 
