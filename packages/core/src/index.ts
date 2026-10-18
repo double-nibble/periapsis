@@ -23,3 +23,10 @@ export {
 } from "./registry.js"
 export { RegistryClient, type RegistryClientConfig } from "./registry-client.js"
 export { createLogger, type Logger, type LogLevel } from "./log.js"
+export {
+  BUILTIN_TOOLS,
+  extractJson,
+  spawnClaude,
+  type RunResult,
+  type SpawnOptions,
+} from "./claude.js"
