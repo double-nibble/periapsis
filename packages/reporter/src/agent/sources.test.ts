@@ -48,3 +48,14 @@ test("buildPrompt carries the instructions and tools", () => {
   assert.ok(prompt.includes("sub1"))
   assert.deepEqual(tools, spec.tools)
 })
+
+test("the calendar and email sources allow their connectors' read tools", () => {
+  assert.ok(
+    AGENT_SOURCES.calendar?.tools.includes("mcp__claude_ai_Google_Calendar__list_calendars"),
+  )
+  assert.deepEqual(AGENT_SOURCES.email?.tools, [
+    "mcp__claude_ai_Gmail__search_threads",
+    "mcp__claude_ai_Gmail__get_thread",
+    "mcp__claude_ai_Gmail__get_message",
+  ])
+})
