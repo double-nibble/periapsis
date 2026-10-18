@@ -64,6 +64,12 @@ test("built-in calendar and email sources deny their connector writes", () => {
 })
 
 test("params.deny extends a built-in source's deny list", () => {
-  const spec = resolveSource("messages", { deny: ["mcp__claude_ai_Slack__send_message"] })
-  assert.deepEqual(spec.deny, ["mcp__claude_ai_Slack__send_message"])
+  const spec = resolveSource("tickets", { deny: ["mcp__claude_ai_Linear__create_issue"] })
+  assert.deepEqual(spec.deny, ["mcp__claude_ai_Linear__create_issue"])
+})
+
+test("the built-in messages source reads Slack and denies its writes", () => {
+  const spec = resolveSource("messages")
+  assert.ok(spec.tools.includes("mcp__claude_ai_Slack__slack_search_public_and_private"))
+  assert.ok(spec.deny.includes("mcp__claude_ai_Slack__slack_send_message"))
 })

@@ -362,7 +362,7 @@ connector tools and contract:
 { "source": "calendar", "instance": "mycal", "mode": "agent" }
 ```
 
-Built-in: `calendar` (Google Calendar connector).
+Built-in: `calendar` (Google Calendar connector), `email` (Gmail), `messages` (Slack).
 
 A source can also be defined inline, so a new one needs only config — no code change:
 
@@ -385,8 +385,8 @@ A source can also be defined inline, so a new one needs only config — no code 
 Headless Claude runs in `dontAsk` mode: any tool outside `tools` is refused. Where an
 organization's managed settings ignore `--allowedTools`, set `"permissionMode": "auto"` on
 the instance; a classifier then approves tool calls, so the deny list is what keeps writes
-out. Auto mode runs only for a source whose write tools are named — built-in `calendar` and
-`email` are; for any other, list them in `params.deny`:
+out. Auto mode runs only for a source whose write tools are named — built-in `calendar`,
+`email` and `messages` are; for any other, list them in `params.deny`:
 
 ```json
 { "source": "calendar", "instance": "work", "mode": "agent", "every": "1h", "permissionMode": "auto" }

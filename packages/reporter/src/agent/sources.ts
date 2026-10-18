@@ -16,11 +16,12 @@ Rules: items is the COMPLETE current set for this source; anything left out is r
 
 const gcal = (t: string) => `mcp__claude_ai_Google_Calendar__${t}`
 const gmail = (t: string) => `mcp__claude_ai_Gmail__${t}`
+const slack = (t: string) => `mcp__claude_ai_Slack__slack_${t}`
 
 // Connector tools are named mcp__claude_ai_<Connector>__<tool>. Only read tools
-// are allowed, so content Claude reads cannot drive an action. The Slack,
-// Linear and Notion tool names have not been checked against live connectors,
-// so those sources name no write tools and cannot run in auto mode.
+// are allowed, so content Claude reads cannot drive an action. The Linear and
+// Notion tool names have not been checked against live connectors, so those
+// sources name no write tools and cannot run in auto mode.
 export const AGENT_SOURCES: Record<string, AgentSource> = {
   calendar: {
     kind: "calendar",
@@ -32,11 +33,27 @@ export const AGENT_SOURCES: Record<string, AgentSource> = {
   messages: {
     kind: "message",
     tools: [
-      "mcp__claude_ai_Slack__search_messages",
-      "mcp__claude_ai_Slack__list_channels",
-      "mcp__claude_ai_Slack__get_channel_history",
-    ],
-    deny: [],
+      "search_public_and_private",
+      "read_channel",
+      "read_thread",
+      "list_user_channels",
+      "read_user_profile",
+    ].map(slack),
+    deny: [
+      "send_message",
+      "send_message_draft",
+      "schedule_message",
+      "add_reaction",
+      "create_conversation",
+      "create_canvas",
+      "update_canvas",
+      "create_list",
+      "update_list",
+      "add_list_record",
+      "update_list_record",
+      "get_file_upload_url",
+      "complete_file_upload",
+    ].map(slack),
     instructions:
       "Report Slack conversations awaiting your reply: direct messages, and channel messages that @-mention you, with no later reply from you. One item per conversation, not per message. key: the channel or DM id. title: who it is from and where (e.g. 'Reply to Dana in #design'). detail: a short quote of the latest message. url: the message permalink. group: the channel or DM name. priority: 1 for a direct message or explicit mention, else 2. fingerprint: the latest message timestamp. Omit at.",
   },
