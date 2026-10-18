@@ -343,7 +343,7 @@ providers and agent sources, every instance setting and examples are in
 - **Needs you**: everything that needs an action, in Now, Soon and When you can bands, with
   Open, Done, Not now and Snooze. Snoozed items return when the snooze ends; a dismissed or
   snoozed item returns when it has new activity.
-- **Projects**, **Pull requests** and **RFCs**: every open one, including hidden ones,
+- **Projects**, **Pull requests** and **Docs**: every open one, including hidden ones,
   dimmed.
 - Clicking any item opens it with its full detail. From there you can dismiss, snooze or
   respond to it.
