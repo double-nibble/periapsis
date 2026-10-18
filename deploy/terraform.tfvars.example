@@ -2,7 +2,7 @@ region            = "us-east-1"
 # Profile that supplies credentials. The default (terraform-login) bridges an
 # `aws login` session; set to your own profile if you authenticate differently.
 aws_profile       = "terraform-login"
-domain            = "double-nibble.com"
+domain            = "example.com"
 zone_id           = "Z0123456789ABCDEFGHIJ"
 allowed_cidrs     = ["203.0.113.0/32"]  # your hub + reporter source IPs
 letsencrypt_email = "you@example.com"
