@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { test } from "node:test"
 import type { Command, Item } from "@periapsis/core"
 import type { RunResult, SpawnOptions } from "../agent/run.js"
-import { Responder, respondArgs, respondPrompt } from "./responder.js"
+import { Responder, refusal, respondArgs, respondPrompt } from "./responder.js"
 
 function cmd(id: string, key = "sub1:code:gh/1", source = "code"): Command {
   return {
@@ -108,4 +108,42 @@ test("respondArgs defaults to auto and rejects unknown modes", () => {
 
 test("respondPrompt carries the item as data", () => {
   assert.match(respondPrompt(cmd("aaaaaaaa-1")), /"title": "Fix the thing"/)
+})
+
+test("refusal checks each allow list that is set", () => {
+  const item = cmd("aaaaaaaa-1").item
+  assert.equal(refusal(undefined, item), null)
+  assert.equal(refusal({ sources: ["code"], kinds: ["pr"] }, item), null)
+  assert.equal(refusal({ urls: ["https://github.com/o/"] }, item), null)
+  assert.match(refusal({ kinds: ["ticket"] }, item) ?? "", /allow\.kinds accepts only ticket/)
+  assert.match(refusal({ urls: ["https://github.com/acme/"] }, item) ?? "", /allow\.urls/)
+  assert.match(refusal({ instances: ["work"] }, item) ?? "", /allow\.instances/)
+})
+
+test("a command outside respond.allow fails without running Claude", async () => {
+  const { r, calls } = setup({ allow: { sources: ["tickets"] } })
+  await r.handle(cmd("aaaaaaaa-1"))
+  assert.equal(calls.length, 0)
+  assert.equal(r.items()[0]?.meta.state, "failed")
+  assert.match(r.items()[0]?.body ?? "", /allow\.sources accepts only tickets/)
+})
+
+test("a follow-up on a refused task is refused", async () => {
+  const { r, calls } = setup({ allow: { sources: ["tickets"] } })
+  await r.handle(cmd("aaaaaaaa-1"))
+  await r.handle(cmd("aaaaaaaa-2", "sub1:tasks:aaaaaaaa-1", "tasks"))
+  assert.equal(calls.length, 0)
+  assert.equal(r.items()[0]?.meta.state, "failed")
+})
+
+test("a follow-up on an accepted task is allowed", async () => {
+  const { r, calls } = setup({ allow: { sources: ["code"] } })
+  await r.handle(cmd("aaaaaaaa-1"))
+  await r.handle(cmd("aaaaaaaa-2", "sub1:tasks:aaaaaaaa-1", "tasks"))
+  assert.equal(calls.length, 2)
+})
+
+test("respondArgs passes the tool rules", () => {
+  const args = respondArgs({ allowedTools: ["Read", "Grep"], disallowedTools: ["Bash"] })
+  assert.deepEqual(args.slice(-4), ["--allowedTools", "Read,Grep", "--disallowedTools", "Bash"])
 })
