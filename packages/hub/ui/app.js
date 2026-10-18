@@ -154,7 +154,8 @@ function el(tag, className, text) {
   return node
 }
 
-// The opened item: what it is, then dismiss or snooze it.
+// The opened item: what it is, then dismiss, snooze, or respond, which sends
+// the prompt to that account's machine.
 function openItem(item) {
   const ref = { account: item.account, source: item.source, key: item.key }
   const status = el("div", "dlg-status")
@@ -207,8 +208,37 @@ function openItem(item) {
   })
   actions.append(dismiss, snooze)
 
-  dialog.replaceChildren(head, body, actions, status)
+  const respond = el("form", "dlg-respond")
+  const prompt = el("textarea", "dlg-prompt")
+  prompt.rows = 4
+  prompt.placeholder = `Tell ${item.account}'s Claude what to do about this…`
+  const send = el("button", "btn primary", "Respond")
+  send.type = "submit"
+  respond.append(prompt, send)
+  prompt.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) respond.requestSubmit()
+  })
+  respond.addEventListener("submit", (e) => {
+    e.preventDefault()
+    if (!prompt.value.trim()) return
+    send.disabled = true
+    post("/api/respond", { ...ref, prompt: prompt.value }).then(
+      () => {
+        status.className = "dlg-status"
+        status.textContent = `Sent to ${item.account}. Its reply will appear as a task.`
+        prompt.value = ""
+        setTimeout(done, 1500)
+      },
+      (err) => {
+        send.disabled = false
+        fail(err)
+      },
+    )
+  })
+
+  dialog.replaceChildren(head, body, respond, actions, status)
   dialog.showModal()
+  prompt.focus()
 }
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
