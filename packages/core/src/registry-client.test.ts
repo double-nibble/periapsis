@@ -53,5 +53,19 @@ test("a failed fetch with no cache rejects", async () => {
     rootSignPublic: root.signPublic,
     fetchImpl: fakeFetch(null, false, 503),
   })
-  await assert.rejects(() => c.start())
+  await assert.rejects(() => c.start(), /registry.json returned HTTP 503/)
+})
+
+test("a network failure names the registry URL and the underlying cause", async () => {
+  const c = new RegistryClient({
+    url: "https://status.example.com/registry.json",
+    rootSignPublic: root.signPublic,
+    fetchImpl: (async () => {
+      throw new TypeError("fetch failed", { cause: { code: "ENOTFOUND" } })
+    }) as typeof fetch,
+  })
+  await assert.rejects(
+    () => c.start(),
+    /cannot fetch the registry from https:\/\/status\.example\.com\/registry\.json: ENOTFOUND/,
+  )
 })
