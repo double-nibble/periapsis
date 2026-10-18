@@ -53,6 +53,7 @@ export interface RunResult {
   isError: boolean
   costUsd: number | null
   turns: number | null
+  sessionId?: string | null
 }
 
 interface Envelope {
@@ -60,6 +61,7 @@ interface Envelope {
   is_error?: boolean
   total_cost_usd?: number
   num_turns?: number
+  session_id?: string
 }
 
 export function claudeArgs(opts: RunOptions): string[] {
@@ -82,14 +84,31 @@ export function claudeArgs(opts: RunOptions): string[] {
 
 // Runs headless Claude read-only: only the named connector tools, with shell,
 // file and web builtins and the connector's write tools denied, so content it
-// reads cannot make it act. The prompt goes on stdin because argv is visible
-// to other local users.
+// reads cannot make it act.
 export function runClaude(opts: RunOptions): Promise<RunResult> {
-  const args = claudeArgs(opts)
+  return spawnClaude(claudeArgs(opts), opts.prompt, { timeoutMs: opts.timeoutMs })
+}
+
+export interface SpawnOptions {
+  cwd?: string
+  timeoutMs?: number
+}
+
+// Runs `claude` with the given arguments and returns its JSON envelope. The
+// prompt goes on stdin because argv is visible to other local users.
+export function spawnClaude(
+  args: string[],
+  prompt: string,
+  opts: SpawnOptions = {},
+): Promise<RunResult> {
   return new Promise<RunResult>((resolve, reject) => {
-    const child = spawn("claude", args, { stdio: ["pipe", "pipe", "pipe"], detached: true })
+    const child = spawn("claude", args, {
+      cwd: opts.cwd,
+      stdio: ["pipe", "pipe", "pipe"],
+      detached: true,
+    })
     let out = ""
-    child.stdin.end(opts.prompt)
+    child.stdin.end(prompt)
     child.stdout.on("data", (d) => {
       out += d
     })
@@ -123,6 +142,7 @@ export function runClaude(opts: RunOptions): Promise<RunResult> {
         isError: env.is_error === true,
         costUsd: env.total_cost_usd ?? null,
         turns: env.num_turns ?? null,
+        sessionId: env.session_id ?? null,
       })
     })
   })
