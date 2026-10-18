@@ -1,7 +1,7 @@
 import { type Item, safeLink } from "@periapsis/core"
 import type { InstanceConfig } from "../provider.js"
 import { monthWindow } from "../providers/window.js"
-import { type RunOptions, type RunResult, extractJson, runClaude } from "./run.js"
+import { type RunOptions, type RunResult, extractJson, permissionMode, runClaude } from "./run.js"
 import { buildPrompt, resolveSource } from "./sources.js"
 
 export type AgentRunner = (opts: RunOptions) => Promise<RunResult>
@@ -58,6 +58,9 @@ export async function collectAgentInstance(
   model?: string,
 ): Promise<Item[]> {
   const spec = resolveSource(source, instance.params)
+  const mode = permissionMode(instance.permissionMode)
+  if (mode === "auto" && spec.deny.length === 0)
+    throw new Error(`auto mode needs the ${source} source's write tools in params.deny`)
   const now = new Date()
   const { start, end } = monthWindow(now)
   const context = {
@@ -66,8 +69,8 @@ export async function collectAgentInstance(
     now: now.toISOString(),
     window: { start: start.toISOString(), end: end.toISOString() },
   }
-  const { prompt, tools } = buildPrompt(spec, context)
-  const res = await run({ prompt, tools, model })
+  const { prompt, tools, deny } = buildPrompt(spec, context)
+  const res = await run({ prompt, tools, deny, permissionMode: mode, model })
   if (res.isError) throw new Error(res.result.slice(0, 200) || "agent error")
   const parsed = extractJson(res.result) as { items?: unknown[]; failed?: boolean; note?: string }
   if (parsed.failed) throw new Error(parsed.note ?? "agent reported failure")

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { extractJson } from "./run.js"
+import { claudeArgs, extractJson, permissionMode } from "./run.js"
 import { buildPrompt, resolveSource } from "./sources.js"
 
 test("extractJson reads the last fenced json block", () => {
@@ -36,4 +36,34 @@ test("resolveSource builds a source from inline tools and instructions", () => {
 
 test("resolveSource rejects an unknown source with no inline spec", () => {
   assert.throws(() => resolveSource("nope"))
+})
+
+test("claudeArgs defaults to dontAsk and denies builtins plus connector writes", () => {
+  const args = claudeArgs({ prompt: "", tools: ["mcp__a__read"], deny: ["mcp__a__write"] })
+  assert.equal(args[args.indexOf("--permission-mode") + 1], "dontAsk")
+  const denied = args[args.indexOf("--disallowedTools") + 1]?.split(",") ?? []
+  assert.ok(denied.includes("Bash"))
+  assert.ok(denied.includes("mcp__a__write"))
+  assert.equal(args[args.indexOf("--allowedTools") + 1], "mcp__a__read")
+})
+
+test("claudeArgs passes auto mode through", () => {
+  const args = claudeArgs({ prompt: "", tools: [], permissionMode: "auto" })
+  assert.equal(args[args.indexOf("--permission-mode") + 1], "auto")
+})
+
+test("permissionMode accepts dontAsk and auto only", () => {
+  assert.equal(permissionMode(undefined), "dontAsk")
+  assert.equal(permissionMode("auto"), "auto")
+  assert.throws(() => permissionMode("bypassPermissions"))
+})
+
+test("built-in calendar and email sources deny their connector writes", () => {
+  assert.ok(resolveSource("calendar").deny.includes("mcp__claude_ai_Google_Calendar__delete_event"))
+  assert.ok(resolveSource("email").deny.includes("mcp__claude_ai_Gmail__send_message"))
+})
+
+test("params.deny extends a built-in source's deny list", () => {
+  const spec = resolveSource("messages", { deny: ["mcp__claude_ai_Slack__send_message"] })
+  assert.deepEqual(spec.deny, ["mcp__claude_ai_Slack__send_message"])
 })

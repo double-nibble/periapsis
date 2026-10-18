@@ -15,6 +15,8 @@ export interface InstanceConfig {
   module?: string
   // How often this instance runs: "30s", "5m", "1h", or milliseconds.
   every?: string | number
+  // Agent instances: "dontAsk" (default) or "auto".
+  permissionMode?: string
 }
 
 // The item a provider returns before the reporter stamps account/source keys.
